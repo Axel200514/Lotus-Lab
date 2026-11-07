@@ -1,10 +1,10 @@
 import { API_CONFIG } from "../../../app/app.config.js";
 import { StorageUtils } from "../../shared/utils/storage.utils.js";
 
-const CACHE_KEY = "lotus_explore_cache_v11";
+const CACHE_KEY = "lotus_explore_cache_v13";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v11";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v13";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 12; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
@@ -113,13 +113,13 @@ export class ExploreService {
     }
   }
 
-  async getFeaturedBoards() {
-    const data = await this.getExploreData();
+  async getFeaturedBoards(forceRefresh = false) {
+    const data = await this.getExploreData(forceRefresh);
     return data.boards || [];
   }
 
-  async getPopularSections() {
-    const data = await this.getExploreData();
+  async getPopularSections(forceRefresh = false) {
+    const data = await this.getExploreData(forceRefresh);
     return data.popularSections || [];
   }
 

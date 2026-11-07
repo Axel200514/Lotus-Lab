@@ -273,7 +273,7 @@ export class ModalComponent {
 
     this.title.textContent = pin.title;
     this.author.textContent = pin.author;
-    if (pin.authorHref) {
+    if (pin.authorHref && /^https?:\/\//i.test(pin.authorHref)) {
       this.author.href = pin.authorHref;
       this.author.target = "_blank";
       this.author.rel = "noopener noreferrer";
@@ -292,10 +292,16 @@ export class ModalComponent {
     this.dimensions.textContent = `${pin.width} × ${pin.height}`;
     this.idEl.textContent = `#${pin.id.slice(0, 8)}`;
 
-    this.sourceLink.href = pin.source;
-    this.sourceLink.target = "_blank";
-    this.sourceLink.rel = "noopener noreferrer";
-    this.sourceLink.title = `Visit original post on ${pin.sourceDomain}`;
+    if (pin.source && /^https?:\/\//i.test(pin.source)) {
+      this.sourceLink.href = pin.source;
+      this.sourceLink.target = "_blank";
+      this.sourceLink.rel = "noopener noreferrer";
+      this.sourceLink.title = `Visit original post on ${pin.sourceDomain}`;
+      this.sourceLink.classList.remove("d-none");
+    } else {
+      this.sourceLink.removeAttribute("href");
+      this.sourceLink.classList.add("d-none");
+    }
 
     this.updateSaveButton(isSaved);
 

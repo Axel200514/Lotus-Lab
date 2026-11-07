@@ -14,13 +14,13 @@ export class ExploreMainComponent {
     this.ideaCardTemplate = document.getElementById("explore-idea-card-template");
   }
 
-  async render() {
+  async render(forceRefresh = false) {
     this.container.textContent = "";
 
     const [boards, popularSections, ideas] = await Promise.all([
-      this.service.getFeaturedBoards(),
-      this.service.getPopularSections(),
-      this.service.getIdeasForYou()
+      this.service.getFeaturedBoards(forceRefresh),
+      this.service.getPopularSections(forceRefresh),
+      this.service.getIdeasForYou(forceRefresh)
     ]);
 
     const recentSearches = StorageUtils.getRecentSearches();
@@ -85,7 +85,7 @@ export class ExploreMainComponent {
       removeBtn.type = "button";
       removeBtn.className = "recent-chip-remove";
       removeBtn.textContent = "×";
-      removeBtn.title = `Eliminar ${query}`;
+      removeBtn.title = `Remove ${query}`;
       removeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         StorageUtils.removeRecentSearch(query);
@@ -184,7 +184,11 @@ export class ExploreMainComponent {
 
       bTitle.textContent = board.title;
       bAuthorName.textContent = `${board.author} `;
-      stats.textContent = `${board.pinCount} Pins · Active`;
+      const countFormatted = new Intl.NumberFormat("en", {
+        notation: "compact",
+        maximumFractionDigits: 1
+      }).format(board.pinCount || 0);
+      stats.textContent = `${countFormatted} Pins · Active`;
 
       card.addEventListener("click", () => {
         if (typeof this.onTopicSelect === "function") {

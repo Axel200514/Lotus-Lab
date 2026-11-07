@@ -595,6 +595,8 @@ body.modal-open {
     flex-direction: column;
     overflow: visible;
     background: #0e1117;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
     transform: none;
   }

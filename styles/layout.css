@@ -36,6 +36,12 @@
   width: 100%;
 }
 
+.pins-masonry .empty-state {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 100%;
+}
+
 .pins-col {
   flex: 1;
   display: flex;

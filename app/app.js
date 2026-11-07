@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js";
-import { PinService } from "../modules/pins/services/pin.service.js";
-import { SavedService } from "../modules/saved/services/saved.service.js";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js";
-import { ExploreService } from "../modules/explore/services/explore.service.js";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js";
+import { AppRouter } from "./app.routes.js?v=2.1";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=2.1";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=2.1";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=2.1";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=2.1";
+import { PinService } from "../modules/pins/services/pin.service.js?v=2.1";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=2.1";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=2.1";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=2.1";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=2.1";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=2.1";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=2.1";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=2.1";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=2.1";
 
 class LotusApp {
   constructor() {
@@ -37,6 +37,8 @@ class LotusApp {
     this.exploreHeader = document.getElementById("explore-header");
     this.exploreBackBtn = document.getElementById("explore-back-btn");
     this.exploreTopicTitle = document.getElementById("explore-topic-title");
+    this.ptrIndicator = document.getElementById("pull-to-refresh");
+    this.ptrIcon = this.ptrIndicator ? this.ptrIndicator.querySelector(".ptr-icon") : null;
 
     this.loader = new LoaderComponent();
 
@@ -62,7 +64,7 @@ class LotusApp {
       this.pinList,
       this.savedService,
       this.loader,
-      () => this.router.navigate(APP_ROUTES.home)
+      () => this.router.navigate(APP_ROUTES.explore)
     );
 
     this.exploreComponent = new ExploreMainComponent(
@@ -103,6 +105,7 @@ class LotusApp {
     this.observer = null;
     this.initRouter();
     this.initIntersectionObserver();
+    this.initPullToRefresh();
     window._app = this;
   }
 
@@ -166,11 +169,141 @@ class LotusApp {
         }
       },
       {
-        rootMargin: "300px 0px"
+        rootMargin: "800px 0px"
       }
     );
 
     this.observer.observe(this.sentinel);
+
+    let scrollTimeout = null;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (scrollTimeout) return;
+        scrollTimeout = setTimeout(() => {
+          scrollTimeout = null;
+          const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
+          if (!isInfiniteScrollable || this.isLoading || !this.hasMore) return;
+          if (this.modal && this.modal.isOpen) return;
+          const scrollRemaining = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+          if (scrollRemaining < 1000) {
+            this.fetchMorePins();
+          }
+        }, 120);
+      },
+      { passive: true }
+    );
+  }
+
+  initPullToRefresh() {
+    if (!this.ptrIndicator) return;
+
+    let startY = 0;
+    let currentPull = 0;
+    let isTracking = false;
+    let isRefreshing = false;
+    const threshold = 65;
+
+    const onTouchStart = (e) => {
+      if (window.scrollY > 5 || isRefreshing) return;
+      if (this.modal && this.modal.isOpen) return;
+      startY = e.touches[0].clientY;
+      currentPull = 0;
+      isTracking = true;
+    };
+
+    const onTouchMove = (e) => {
+      if (!isTracking || isRefreshing) return;
+      if (window.scrollY > 5) {
+        isTracking = false;
+        this.resetPullIndicator();
+        return;
+      }
+      const clientY = e.touches[0].clientY;
+      const diff = clientY - startY;
+      if (diff > 0) {
+        currentPull = Math.min(diff * 0.42, 85);
+        const progress = Math.min(currentPull / threshold, 1);
+        this.ptrIndicator.style.transition = "none";
+        this.ptrIndicator.style.opacity = String(progress);
+        this.ptrIndicator.style.transform = `translate3d(-50%, ${currentPull - 75}px, 0)`;
+        if (this.ptrIcon) {
+          this.ptrIcon.style.transform = `rotate(${progress * 280}deg)`;
+        }
+      } else {
+        this.resetPullIndicator();
+      }
+    };
+
+    const onTouchEnd = async () => {
+      if (!isTracking || isRefreshing) return;
+      isTracking = false;
+
+      if (currentPull >= threshold) {
+        isRefreshing = true;
+        this.ptrIndicator.style.transition = "";
+        this.ptrIndicator.classList.add("refreshing");
+        try {
+          await this.triggerFeedRefresh();
+        } finally {
+          setTimeout(() => {
+            this.ptrIndicator.classList.remove("refreshing");
+            this.resetPullIndicator();
+            isRefreshing = false;
+          }, 400);
+        }
+      } else {
+        this.resetPullIndicator();
+      }
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+  }
+
+  resetPullIndicator() {
+    if (!this.ptrIndicator) return;
+    this.ptrIndicator.style.transition = "opacity 0.25s ease, transform 0.25s ease";
+    this.ptrIndicator.style.opacity = "0";
+    this.ptrIndicator.style.transform = "translate3d(-50%, -75px, 0)";
+    if (this.ptrIcon) {
+      this.ptrIcon.style.transform = "rotate(0deg)";
+    }
+  }
+
+  async triggerFeedRefresh() {
+    if (this.currentMode === "explore") {
+      this.hasRenderedExplore = false;
+      this.exploreService.memoryCache = null;
+      this.exploreService.ideasMemoryCache = null;
+      await this.exploreComponent.render(true);
+      return;
+    }
+
+    if (this.currentMode === "saved") {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      this.savedList.render();
+      return;
+    }
+
+    if (this.currentMode === "topic") {
+      this.pinList.clear();
+      this.pinService.resetTopicSession();
+      await this.fetchMorePins(true);
+      return;
+    }
+
+    if (this.currentMode === "search") {
+      this.pinList.clear();
+      this.pinService.resetSearchSession();
+      await this.fetchMorePins(true);
+      return;
+    }
+
+    this.pinList.clear();
+    this.pinService.resetSession();
+    await this.fetchMorePins(true);
   }
 
   showFeedView() {
@@ -189,13 +322,12 @@ class LotusApp {
     this.currentQuery = "";
     this.currentPage = 1;
     this.hasMore = true;
-
-    if (this.pinList.renderedPins.length === 0) {
-      this.loader.hideEnd();
-      this.loader.hideEmpty();
-      this.pinService.resetSession();
-      this.fetchMorePins(true);
-    }
+    this.pinList.clear();
+    this.loader.hideEnd();
+    this.loader.hideEmpty();
+    this.pinService.resetSession();
+    this.fetchMorePins(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   showHomeTopicView(topic) {
@@ -433,6 +565,12 @@ class LotusApp {
       if (currentSeq === this.fetchSeq) {
         this.isLoading = false;
         this.loader.hide();
+        if (this.hasMore && this.sentinel) {
+          const rect = this.sentinel.getBoundingClientRect();
+          if (rect.top <= window.innerHeight + 800) {
+            this.fetchMorePins();
+          }
+        }
       }
     }
   }

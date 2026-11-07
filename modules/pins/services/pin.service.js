@@ -144,6 +144,9 @@ export class PinService {
 
     const wildcard = tokens.map((t) => (t.endsWith("*") ? t : `${t}*`)).join(" ");
     candidates.add(wildcard);
+    candidates.add(`${underscored}_(series)`);
+    candidates.add(`${underscored}_(game)`);
+    candidates.add(`${underscored}_(anime)`);
 
     if (tokens.length > 1) {
       for (const t of tokens) {
@@ -255,41 +258,30 @@ export class PinService {
   }
 
   async searchPins(query, page = 1, limit = API_CONFIG.defaultLimit) {
-    const effectivePage = page + (page === 1 ? (this.searchOffset || 0) : 0);
-    let safebooruResults = await this.fetchSafebooru(query, effectivePage, limit);
-
-    if (safebooruResults.length === 0 && effectivePage !== page) {
-      safebooruResults = await this.fetchSafebooru(query, page, limit);
-    }
-
+    const safebooruResults = await this.fetchSafebooru(query, page, limit);
     const pins = this.shuffle(safebooruResults);
 
     return {
       pins,
-      hasNextPage: pins.length >= 6,
+      hasNextPage: safebooruResults.length >= limit,
       totalPages: 25
     };
   }
 
   async getTopicPins(topic, page = 1, limit = API_CONFIG.defaultLimit) {
     const cleanTopic = (topic || "").trim().toLowerCase();
-    const effectivePage = page + (this.topicOffset || 0);
-    const cacheKey = `topic_${cleanTopic}_${effectivePage}_${limit}`;
+    const cacheKey = `topic_${cleanTopic}_${page}_${limit}`;
 
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
 
-    let results = await this.fetchSafebooru(cleanTopic, effectivePage, limit);
-    if (results.length === 0 && effectivePage !== page) {
-      results = await this.fetchSafebooru(cleanTopic, page, limit);
-    }
-
+    const results = await this.fetchSafebooru(cleanTopic, page, limit);
     const pins = this.shuffle(results);
 
     const result = {
       pins,
-      hasNextPage: pins.length >= 6,
+      hasNextPage: results.length >= limit,
       totalPages: 25
     };
 

@@ -4,6 +4,10 @@ const isCleanName = (tag) => {
   return tag.length > 2 && !/^\d/.test(tag) && !tag.startsWith("&") && !ATTR_REGEX.test(tag);
 };
 
+const isSafeHttpUrl = (url) => {
+  return typeof url === "string" && /^https?:\/\//i.test(url.trim());
+};
+
 export class PinModel {
   constructor(data = {}) {
     this.id = data.id || String(Date.now());
@@ -15,8 +19,8 @@ export class PinModel {
     this.height = Number(data.height) || 1600;
     this.tags = Array.isArray(data.tags) ? data.tags : [];
     this.author = data.author || "Visual Artist";
-    this.authorHref = data.authorHref || "";
-    this.source = data.source || this.fullUrl;
+    this.authorHref = isSafeHttpUrl(data.authorHref) ? data.authorHref.trim() : "";
+    this.source = isSafeHttpUrl(data.source) ? data.source.trim() : this.fullUrl;
     this.sourceDomain = data.sourceDomain || "pixiv.net";
     this.createdAt = data.createdAt || new Date().toISOString();
   }
@@ -127,8 +131,8 @@ export class PinModel {
       height: Number(item.height) || 1600,
       tags: formattedTags,
       author: authorName,
-      authorHref: authorHref,
-      source: src || authorHref,
+      authorHref: isSafeHttpUrl(authorHref) ? authorHref : `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`,
+      source: isSafeHttpUrl(src) ? src : (isSafeHttpUrl(authorHref) ? authorHref : `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`),
       sourceDomain: domain,
       createdAt: item.change ? new Date(item.change * 1000).toISOString() : new Date().toISOString()
     });

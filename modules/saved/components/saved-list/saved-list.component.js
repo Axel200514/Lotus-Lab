@@ -26,7 +26,7 @@ export class SavedListComponent {
     container.textContent = "";
 
     const wrap = document.createElement("div");
-    wrap.className = "empty-state visible";
+    wrap.className = "empty-state visible w-full";
 
     const title = document.createElement("h2");
     title.className = "empty-title";
