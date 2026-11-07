@@ -139,19 +139,21 @@ class LotusApp {
     }
 
     const existing = this.pinList.renderedPins.find((p) => p.id === pinId)
-      || this.savedService.getAllSaved().find((p) => p.id === pinId);
+      || this.savedService.getSavedPins().find((p) => p.id === pinId);
 
     if (existing) {
-      this.modal.open(existing, this.savedService.isSaved(existing.id));
-      history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      const isSaved = this.savedService.isSaved(existing.id);
+      history.replaceState({ modalOpen: true, pinId: existing.id, isDirect: true }, document.title, window.location.href);
+      this.modal.open(existing, isSaved, false);
       return;
     }
 
     try {
       const pin = await this.pinService.getPinById(pinId);
       if (pin) {
-        this.modal.open(pin, this.savedService.isSaved(pin.id));
-        history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        const isSaved = this.savedService.isSaved(pin.id);
+        history.replaceState({ modalOpen: true, pinId: pin.id, isDirect: true }, document.title, window.location.href);
+        this.modal.open(pin, isSaved, false);
       }
     } catch {}
   }
@@ -465,9 +467,11 @@ class LotusApp {
         if (!title || !query) return;
         const q = String(query).trim();
         const l = String(title).replace(/&#039;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-        const key = q.toLowerCase();
-        if (!seen.has(key)) {
-          seen.add(key);
+        const keyQ = q.toLowerCase();
+        const keyL = l.toLowerCase();
+        if (!seen.has(keyQ) && !seen.has(keyL)) {
+          seen.add(keyQ);
+          seen.add(keyL);
           tags.push({ label: l, query: q });
         }
       };
@@ -480,25 +484,47 @@ class LotusApp {
       }
 
       const fallbacks = [
+        { label: "Genshin Impact", query: "genshin_impact" },
+        { label: "Honkai Star Rail", query: "honkai:_star_rail" },
+        { label: "Zenless Zone Zero", query: "zenless_zone_zero" },
         { label: "Undertale", query: "undertale" },
         { label: "Touhou", query: "touhou" },
         { label: "Deltarune", query: "deltarune" },
-        { label: "Umamusume", query: "umamusume" },
         { label: "Blue Archive", query: "blue_archive" },
+        { label: "Umamusume", query: "umamusume" },
         { label: "Project Moon", query: "project_moon" },
-        { label: "Glitchtale", query: "glitchtale" },
+        { label: "Fate", query: "fate/grand_order" },
+        { label: "Arknights", query: "arknights" },
+        { label: "Hololive", query: "hololive" },
+        { label: "Vocaloid", query: "vocaloid" },
+        { label: "Frieren", query: "sousou_no_frieren" },
+        { label: "Bocchi the Rock", query: "bocchi_the_rock!" },
+        { label: "Chainsaw Man", query: "chainsaw_man" },
+        { label: "Jujutsu Kaisen", query: "jujutsu_kaisen" },
+        { label: "Evangelion", query: "neon_genesis_evangelion" },
         { label: "Madoka Magica", query: "mahou_shoujo_madoka_magica" },
-        { label: "Genderswap", query: "genderswap" },
-        { label: "Cyberpunk", query: "cyberpunk" }
+        { label: "Cyberpunk", query: "cyberpunk" },
+        { label: "NieR Automata", query: "nier:_automata" },
+        { label: "Persona", query: "persona_5" },
+        { label: "Pokemon", query: "pokemon" },
+        { label: "Zelda", query: "the_legend_of_zelda" },
+        { label: "Elden Ring", query: "elden_ring" },
+        { label: "Oshi no Ko", query: "oshi_no_ko" },
+        { label: "Spy x Family", query: "spy_x_family" },
+        { label: "Glitchtale", query: "glitchtale" },
+        { label: "Pixel Art", query: "pixel_art" },
+        { label: "Scenery", query: "scenery" },
+        { label: "Wallpaper", query: "wallpaper" },
+        { label: "Retro 90s", query: "90s_retro" }
       ];
 
       for (const fb of fallbacks) {
-        if (tags.length >= 16) break;
         addTag(fb.label, fb.query);
       }
 
       if (tags.length > 0) {
-        this.tagFilter.setTags(tags);
+        const shuffled = this.pinService.shuffle(tags);
+        this.tagFilter.setTags(shuffled);
         this.hasLoadedTrendingTags = true;
       }
     } catch {}

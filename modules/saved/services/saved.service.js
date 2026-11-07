@@ -7,6 +7,10 @@ export class SavedService {
     return rawList.map((item) => new PinModel(item));
   }
 
+  getAllSaved() {
+    return this.getSavedPins();
+  }
+
   isSaved(pinId) {
     return StorageUtils.isSaved(pinId);
   }

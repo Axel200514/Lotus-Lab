@@ -514,6 +514,15 @@ body.modal-open {
   }
 }
 
+@media (max-width: 1180px) {
+  .modal-close-btn {
+    top: 20px;
+    left: 20px;
+    right: auto;
+    z-index: 250;
+  }
+}
+
 @media (min-width: 769px) and (max-width: 1024px) {
   .modal-backdrop {
     padding: 32px 16px 64px;

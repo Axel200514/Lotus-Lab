@@ -6,6 +6,13 @@
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.categories-bar.is-dragging {
+  cursor: grabbing;
 }
 
 .categories-bar::-webkit-scrollbar {
@@ -23,6 +30,8 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   will-change: transform;
   transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-spring);
 }

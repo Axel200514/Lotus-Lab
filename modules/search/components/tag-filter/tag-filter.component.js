@@ -19,7 +19,7 @@ export class TagFilterComponent {
     fragment.appendChild(allBtn);
 
     const isMobile = window.innerWidth <= 768;
-    const items = tags.slice(0, isMobile ? 8 : 16);
+    const items = tags.slice(0, isMobile ? 8 : 14);
 
     items.forEach((item) => {
       const btn = document.createElement("button");
@@ -35,7 +35,53 @@ export class TagFilterComponent {
   }
 
   init() {
+    let isDown = false;
+    let startX = 0;
+    let initialScroll = 0;
+    let hasMoved = false;
+
+    this.containerEl.addEventListener("mousedown", (e) => {
+      isDown = true;
+      hasMoved = false;
+      startX = e.clientX;
+      initialScroll = this.containerEl.scrollLeft;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (!isDown) return;
+      isDown = false;
+      this.containerEl.classList.remove("is-dragging");
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDown) return;
+      const delta = e.clientX - startX;
+      if (!hasMoved && Math.abs(delta) > 8) {
+        hasMoved = true;
+        this.containerEl.classList.add("is-dragging");
+      }
+      if (hasMoved) {
+        e.preventDefault();
+        this.containerEl.scrollLeft = initialScroll - delta;
+      }
+    });
+
+    this.containerEl.addEventListener(
+      "wheel",
+      (e) => {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          this.containerEl.scrollLeft += e.deltaY;
+        }
+      },
+      { passive: false }
+    );
+
     this.containerEl.addEventListener("click", (e) => {
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
       const chip = e.target.closest(".category-chip");
       if (!chip) return;
 

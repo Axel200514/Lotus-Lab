@@ -209,7 +209,9 @@ export class ModalComponent {
 
     if (pushToStack) {
       this.pinStack.push(pin);
-      history.pushState({ modalOpen: true, pinId: pin.id }, "");
+      history.pushState({ modalOpen: true, pinId: pin.id }, "", `#pin=${encodeURIComponent(pin.id)}`);
+    } else {
+      this.pinStack = [pin];
     }
 
     if (!this.isOpen) {
@@ -506,7 +508,7 @@ export class ModalComponent {
 
   close() {
     if (!this.isOpen) return;
-    if (history.state && history.state.modalOpen) {
+    if (history.state && history.state.modalOpen && !history.state.isDirect) {
       history.back();
     } else {
       this.closeInternal();
