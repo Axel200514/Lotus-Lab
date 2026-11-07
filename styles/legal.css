@@ -73,7 +73,7 @@ body.legal-page::-webkit-scrollbar {
   max-width: 860px;
   width: 100%;
   margin: 0 auto;
-  padding: 48px 24px 80px;
+  padding: 48px 24px 28vh;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -285,7 +285,7 @@ body.legal-page::-webkit-scrollbar {
   }
 
   .legal-main {
-    padding: 20px 16px 80px;
+    padding: 20px 16px 28vh;
     gap: 20px;
   }
 

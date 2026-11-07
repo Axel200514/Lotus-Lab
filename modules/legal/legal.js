@@ -71,8 +71,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isManualScroll || sections.length === 0) return;
 
     const viewportHeight = window.innerHeight;
-    const midPoint = viewportHeight * 0.45;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight;
 
+    const lastSection = sections[sections.length - 1];
+    const lastRect = lastSection.getBoundingClientRect();
+
+    if (
+      scrollY + viewportHeight >= docHeight - 48 ||
+      (lastRect.bottom <= viewportHeight + 12 && lastRect.top < viewportHeight * 0.75)
+    ) {
+      activateTab(lastSection.id);
+      return;
+    }
+
+    const midPoint = viewportHeight * 0.45;
     let closestSection = sections[0];
     let minDistance = Infinity;
 
