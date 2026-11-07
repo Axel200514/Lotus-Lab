@@ -1,10 +1,10 @@
 import { API_CONFIG } from "../../../app/app.config.js";
 import { StorageUtils } from "../../shared/utils/storage.utils.js";
 
-const CACHE_KEY = "lotus_explore_cache_v13";
+const CACHE_KEY = "lotus_explore_cache_v14";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v13";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v14";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 12; i++) {
+      for (let i = 1; i <= 13; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
@@ -63,6 +63,7 @@ export class ExploreService {
       if (this.isValidPayload(parsed.data)) {
         return parsed.data;
       }
+      localStorage.removeItem(CACHE_KEY);
       return null;
     } catch {
       return null;
@@ -82,13 +83,10 @@ export class ExploreService {
   }
 
   isValidPayload(data) {
-    if (!data || !Array.isArray(data.boards) || data.boards.length === 0) {
+    if (!data || !Array.isArray(data.boards) || data.boards.length < 8) {
       return false;
     }
-    const hasLowRes = data.boards.some(
-      (b) => Array.isArray(b.previews) && b.previews.some((url) => String(url).includes("/thumbnails/"))
-    );
-    return !hasLowRes;
+    return true;
   }
 
   async fetchExploreData() {
@@ -134,12 +132,13 @@ export class ExploreService {
         const raw = localStorage.getItem(IDEAS_CACHE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && parsed.timestamp && Array.isArray(parsed.data) && parsed.data.length > 0) {
+          if (parsed && parsed.timestamp && Array.isArray(parsed.data) && parsed.data.length >= 5) {
             if (Date.now() - parsed.timestamp < IDEAS_CACHE_TTL_MS) {
               this.ideasMemoryCache = parsed.data;
               return parsed.data;
             }
           }
+          localStorage.removeItem(IDEAS_CACHE_KEY);
         }
       } catch {}
     }
@@ -222,6 +221,42 @@ export class ExploreService {
           });
           if (selectedTopics.length >= 5) break;
         }
+      }
+    }
+
+    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
+      for (const board of exploreData.boards) {
+        if (!board || !board.tag) continue;
+        const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
+        const preview = (board.previews && (board.previews[0] || board.previews[1])) || "";
+        if (!usedQueries.has(q) && preview) {
+          usedQueries.add(q);
+          selectedTopics.push({
+            title: board.title || this.formatTitle(board.tag),
+            tag: board.tag,
+            query: q,
+            previewUrl: preview
+          });
+          if (selectedTopics.length >= 5) break;
+        }
+      }
+    }
+
+    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
+      for (const board of exploreData.boards) {
+        if (!board || !Array.isArray(board.previews)) continue;
+        for (const prev of board.previews) {
+          if (prev && !selectedTopics.some((t) => t.previewUrl === prev)) {
+            selectedTopics.push({
+              title: board.title || this.formatTitle(board.tag),
+              tag: board.tag,
+              query: `${board.tag}_${selectedTopics.length}`,
+              previewUrl: prev
+            });
+            if (selectedTopics.length >= 5) break;
+          }
+        }
+        if (selectedTopics.length >= 5) break;
       }
     }
 

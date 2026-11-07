@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Legal &amp; Policies</title>
+  
+  <link rel="stylesheet" href="./styles/variables.css?v=2.1">
+  <link rel="stylesheet" href="./styles/reset.css?v=2.1">
+  <link rel="stylesheet" href="./styles/layout.css?v=2.1">
+  <link rel="stylesheet" href="./styles/utilities.css?v=2.1">
+  <link rel="stylesheet" href="./styles/legal.css?v=2.2">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ec4899'%3E%3Cpath d='M12 2C12 2 8 8 8 13C8 15.2091 9.79086 17 12 17C14.2091 17 16 15.2091 16 13C16 8 12 2 12 2Z'/%3E%3Cpath d='M7.5 13C5.567 13 4 14.567 4 16.5C4 18.433 7.5 21 7.5 21C7.5 21 11 18.433 11 16.5C11 14.567 9.433 13 7.5 13Z' fill-opacity='0.8'/%3E%3Cpath d='M16.5 13C14.567 13 13 14.567 13 16.5C13 18.433 16.5 21 16.5 21C16.5 21 20 18.433 20 16.5C20 14.567 18.433 13 16.5 13Z' fill-opacity='0.8'/%3E%3C/svg%3E">
+</head>
+<body class="legal-page">
+  <header class="legal-header">
+    <a href="./index.html" class="legal-back-btn" title="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      <span>Back</span>
+    </a>
+  </header>
+
+  <main class="legal-main">
+    <section class="legal-hero">
+      <h1 class="legal-hero-title">Legal &amp; Policies</h1>
+      <p class="legal-hero-desc">
+        Personal study project notice, client-side privacy, and third-party content disclaimer.
+      </p>
+    </section>
+
+    <nav class="legal-segmented-container" aria-label="Legal navigation">
+      <div class="legal-segmented-track">
+        <div class="legal-segmented-indicator"></div>
+        <button type="button" class="legal-tab-btn active" data-target="terms">Terms</button>
+        <button type="button" class="legal-tab-btn" data-target="privacy">Privacy</button>
+        <button type="button" class="legal-tab-btn" data-target="dmca">Content Notice</button>
+        <button type="button" class="legal-tab-btn" data-target="fair-use">Attribution</button>
+      </div>
+    </nav>
+
+    <div class="legal-content-sections">
+      <article class="legal-card" id="terms">
+        <div class="legal-card-header">
+          <div class="legal-card-title-group">
+            <div class="legal-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <h2 class="legal-card-title">Terms of Service</h2>
+          </div>
+        </div>
+
+        <div class="legal-card-body">
+          <p>
+            This application is a non-commercial educational project developed exclusively for personal study, web architecture experimentation, and technical learning. It functions solely as a client-side search interface querying public imageboard APIs (Safebooru / Danbooru).
+          </p>
+
+          <ul class="legal-list">
+            <li><strong>Purpose:</strong> Developed strictly for educational research, web development practice, and personal non-commercial study.</li>
+            <li><strong>Content Disclaimer:</strong> This project does not own, sell, host, or commercialize any of the indexed media assets.</li>
+            <li><strong>Trademarks:</strong> All character designs, fictional universes, video game titles, and trademarks referenced in tags belong entirely to their original creators, studios, and copyright holders.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="legal-card" id="privacy">
+        <div class="legal-card-header">
+          <div class="legal-card-title-group">
+            <div class="legal-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <h2 class="legal-card-title">Privacy</h2>
+          </div>
+        </div>
+
+        <div class="legal-card-body">
+          <p>
+            No user accounts, database registrations, tracking pixels, or telemetry scripts are used.
+          </p>
+
+          <ul class="legal-list">
+            <li><strong>Local Storage:</strong> Saved pins and recent queries are stored strictly in your browser (<code>localStorage</code>) on your own device.</li>
+            <li><strong>Network Privacy:</strong> External image requests use <code>no-referrer</code> policies to prevent transmitting navigation headers.</li>
+            <li><strong>Data Control:</strong> You can clear all locally saved data at any moment by resetting your browser site data.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="legal-card" id="dmca">
+        <div class="legal-card-header">
+          <div class="legal-card-title-group">
+            <div class="legal-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+            </div>
+            <h2 class="legal-card-title">Content &amp; Takedown Notice</h2>
+          </div>
+        </div>
+
+        <div class="legal-card-body">
+          <p>
+            This application does not host, store, or upload media files to any private server or database. It operates strictly as a lightweight client proxy that displays metadata directly from public external imageboards (Safebooru).
+          </p>
+
+          <p>
+            Because no content is physically stored on or hosted by this personal study project, copyright owners seeking complete removal of an image must request removal directly from the upstream imageboard providers or the original hosting platform where the file is stored.
+          </p>
+        </div>
+      </article>
+
+      <article class="legal-card" id="fair-use">
+        <div class="legal-card-header">
+          <div class="legal-card-title-group">
+            <div class="legal-card-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </div>
+            <h2 class="legal-card-title">Artist Attribution</h2>
+          </div>
+        </div>
+
+        <div class="legal-card-body">
+          <p>
+            Artwork metadata is parsed to credit original creators. Whenever source information is available in the index, pin modals provide direct links to the author's original profiles (Pixiv, Twitter / X, ArtStation, DeviantArt, etc.) to drive discovery to their official pages.
+          </p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <script type="module" src="./modules/legal/legal.js?v=2.2"></script>
+</body>
+</html>

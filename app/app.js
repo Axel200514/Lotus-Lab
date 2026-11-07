@@ -314,6 +314,10 @@ class LotusApp {
     this.searchBar.setValue("");
     this.tagFilter.selectByTag("");
 
+    if (!this.hasLoadedTrendingTags) {
+      this.loadDynamicTags();
+    }
+
     if (this.currentMode === "feed" && this.pinList.renderedPins.length > 0) {
       return;
     }
@@ -455,20 +459,44 @@ class LotusApp {
     try {
       const data = await this.exploreService.getExploreData();
       const tags = [];
-      if (Array.isArray(data.boards)) {
-        data.boards.forEach((b) => {
-          if (b.title && b.tag) {
-            tags.push({ label: b.title, query: b.tag });
-          }
-        });
+      const seen = new Set();
+
+      const addTag = (title, query) => {
+        if (!title || !query) return;
+        const q = String(query).trim();
+        const l = String(title).replace(/&#039;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+        const key = q.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          tags.push({ label: l, query: q });
+        }
+      };
+
+      if (Array.isArray(data?.boards)) {
+        data.boards.forEach((b) => addTag(b.title, b.tag));
       }
-      if (Array.isArray(data.popularSections)) {
-        data.popularSections.forEach((s) => {
-          if (s.title && s.tag) {
-            tags.push({ label: s.title, query: s.tag });
-          }
-        });
+      if (Array.isArray(data?.popularSections)) {
+        data.popularSections.forEach((s) => addTag(s.title, s.tag));
       }
+
+      const fallbacks = [
+        { label: "Undertale", query: "undertale" },
+        { label: "Touhou", query: "touhou" },
+        { label: "Deltarune", query: "deltarune" },
+        { label: "Umamusume", query: "umamusume" },
+        { label: "Blue Archive", query: "blue_archive" },
+        { label: "Project Moon", query: "project_moon" },
+        { label: "Glitchtale", query: "glitchtale" },
+        { label: "Madoka Magica", query: "mahou_shoujo_madoka_magica" },
+        { label: "Genderswap", query: "genderswap" },
+        { label: "Cyberpunk", query: "cyberpunk" }
+      ];
+
+      for (const fb of fallbacks) {
+        if (tags.length >= 16) break;
+        addTag(fb.label, fb.query);
+      }
+
       if (tags.length > 0) {
         this.tagFilter.setTags(tags);
         this.hasLoadedTrendingTags = true;
@@ -531,25 +559,6 @@ class LotusApp {
       }
 
       this.loader.hideEmpty();
-      if (!this.hasLoadedTrendingTags && this.tagFilter.chips.length <= 1) {
-        const extracted = [];
-        const seen = new Set();
-        pins.forEach((p) => {
-          if (Array.isArray(p.tags)) {
-            p.tags.forEach((t) => {
-              const q = typeof t === "string" ? t : t.query;
-              const l = typeof t === "string" ? t : t.label;
-              if (q && !seen.has(q) && q.length > 3 && !/(hair|eyes|dress|skirt|highres|absurdres|1girl|1boy|solo)/i.test(q)) {
-                seen.add(q);
-                extracted.push({ label: l, query: q });
-              }
-            });
-          }
-        });
-        if (extracted.length > 0) {
-          this.tagFilter.setTags(extracted);
-        }
-      }
       this.pinList.renderPins(pins);
       this.currentPage += 1;
 

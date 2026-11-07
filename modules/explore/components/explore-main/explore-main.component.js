@@ -103,6 +103,13 @@ export class ExploreMainComponent {
     return section;
   }
 
+  cleanText(str) {
+    return String(str || "")
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"');
+  }
+
   buildIdeasForYouSection(ideas) {
     if (!this.ideasTemplate || !this.ideaCardTemplate) return null;
     const clone = this.ideasTemplate.content.cloneNode(true);
@@ -117,9 +124,10 @@ export class ExploreMainComponent {
       const title = cardClone.querySelector(".idea-title");
       const badge = cardClone.querySelector(".idea-badge");
 
+      const displayTitle = this.cleanText(idea.title);
       img.src = idea.previewUrl;
-      img.alt = idea.title;
-      title.textContent = idea.title;
+      img.alt = displayTitle;
+      title.textContent = displayTitle;
       badge.textContent = idea.badge || "Idea for you";
 
       card.addEventListener("click", () => {
@@ -164,25 +172,26 @@ export class ExploreMainComponent {
       const bAuthorName = clone.querySelector(".author-name");
       const stats = clone.querySelector(".board-stats");
 
+      const displayTitle = this.cleanText(board.title);
       mainImg.src = board.previews[0];
-      mainImg.alt = board.title;
+      mainImg.alt = displayTitle;
       mainImg.onerror = () => {
         if (board.previews[1]) mainImg.src = board.previews[1];
       };
 
       sub1.src = board.previews[1] || board.previews[0];
-      sub1.alt = board.title;
+      sub1.alt = displayTitle;
       sub1.onerror = () => {
         if (board.previews[0]) sub1.src = board.previews[0];
       };
 
       sub2.src = board.previews[2] || board.previews[0];
-      sub2.alt = board.title;
+      sub2.alt = displayTitle;
       sub2.onerror = () => {
         if (board.previews[0]) sub2.src = board.previews[0];
       };
 
-      bTitle.textContent = board.title;
+      bTitle.textContent = displayTitle;
       bAuthorName.textContent = `${board.author} `;
       const countFormatted = new Intl.NumberFormat("en", {
         notation: "compact",
@@ -211,8 +220,9 @@ export class ExploreMainComponent {
     const shortcutBtn = clone.querySelector(".explore-search-shortcut");
     const row = clone.querySelector(".popular-row");
 
-    titleText.textContent = item.title;
-    shortcutBtn.title = `Explore ${item.title}`;
+    const displayTitle = this.cleanText(item.title);
+    titleText.textContent = displayTitle;
+    shortcutBtn.title = `Explore ${displayTitle}`;
 
     const thumbsFragment = document.createDocumentFragment();
 

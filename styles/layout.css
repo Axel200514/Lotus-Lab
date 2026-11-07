@@ -83,3 +83,41 @@
     gap: 8px;
   }
 }
+
+.header-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: var(--glass-border-subtle);
+  color: var(--text-secondary);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-spring-fast);
+}
+
+.header-info-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  transform: scale(1.06);
+}
+
+.header-info-btn:active {
+  transform: scale(0.94);
+}
+
+.end-legal-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--brand-lotus);
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.end-legal-link:hover {
+  text-decoration: underline;
+}
