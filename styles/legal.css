@@ -73,7 +73,7 @@ body.legal-page::-webkit-scrollbar {
   max-width: 860px;
   width: 100%;
   margin: 0 auto;
-  padding: 48px 24px 28vh;
+  padding: 48px 24px 80px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -262,6 +262,94 @@ body.legal-page::-webkit-scrollbar {
   text-decoration: underline;
 }
 
+.legal-footer {
+  margin-top: 16px;
+  padding: 36px 32px;
+  background: var(--glass-bg);
+  border: var(--glass-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.legal-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legal-footer-icon {
+  color: var(--brand-lotus);
+}
+
+.legal-footer-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.legal-footer-copyright {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.legal-footer-author {
+  color: var(--brand-lotus);
+  text-decoration: none;
+  font-weight: 700;
+  transition: opacity var(--transition-fast);
+}
+
+.legal-footer-author:hover {
+  text-decoration: underline;
+}
+
+.legal-footer-subtext {
+  max-width: 620px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.legal-footer-links {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.legal-github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-spring-fast);
+}
+
+.legal-github-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translate3d(0, -2px, 0);
+}
+
+.legal-github-btn:active {
+  transform: scale(0.96);
+}
+
 @media (max-width: 768px) {
   .legal-header {
     height: 56px;
@@ -285,7 +373,7 @@ body.legal-page::-webkit-scrollbar {
   }
 
   .legal-main {
-    padding: 20px 16px 28vh;
+    padding: 20px 16px 60px;
     gap: 20px;
   }
 
@@ -303,5 +391,14 @@ body.legal-page::-webkit-scrollbar {
 
   .legal-card {
     padding: 20px 16px;
+  }
+
+  .legal-footer {
+    padding: 24px 18px;
+    gap: 12px;
+  }
+
+  .legal-footer-subtext {
+    font-size: 0.82rem;
   }
 }
