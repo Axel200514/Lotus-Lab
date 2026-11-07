@@ -87,6 +87,20 @@ body.legal-page::-webkit-scrollbar {
   gap: 12px;
 }
 
+.legal-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(236, 72, 153, 0.28);
+  border-radius: var(--radius-full);
+  color: #f472b6;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .legal-hero-title {
   font-size: clamp(2rem, 4vw, 2.8rem);
   font-weight: 800;
@@ -293,10 +307,28 @@ body.legal-page::-webkit-scrollbar {
   color: var(--text-primary);
 }
 
+.legal-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .legal-footer-copyright {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.legal-footer-date {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f472b6;
+  background: rgba(236, 72, 153, 0.1);
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(236, 72, 153, 0.25);
 }
 
 .legal-footer-author {
