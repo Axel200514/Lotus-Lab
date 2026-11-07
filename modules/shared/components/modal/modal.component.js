@@ -1,4 +1,5 @@
 import { showToast, copyToClipboard } from "../../utils/ui.utils.js";
+import { StorageUtils } from "../../utils/storage.utils.js";
 import { API_CONFIG } from "../../../../app/app.config.js";
 
 export class ModalComponent {
@@ -228,6 +229,7 @@ export class ModalComponent {
     if (!pin) return;
     this.activePin = pin;
     this.seenPinIds.add(pin.id);
+    StorageUtils.recordViewedPin(pin);
 
     if (this.imgSpinner) {
       this.imgSpinner.classList.remove("d-none");

@@ -83,6 +83,8 @@ class LotusApp {
       this.categoriesContainer,
       (tag) => {
         if (tag) {
+          StorageUtils.addRecentSearch(tag);
+          this.exploreService.clearIdeasCache();
           this.router.navigate(`topic=${encodeURIComponent(tag)}`);
         } else {
           this.router.navigate(APP_ROUTES.home);
@@ -423,14 +425,9 @@ class LotusApp {
     this.loader.hideEnd();
     this.loader.hideEmpty();
 
-    if (!this.hasRenderedExplore) {
-      this.loader.show();
-      const rendered = await this.exploreComponent.render();
-      if (rendered) {
-        this.hasRenderedExplore = true;
-      }
-      this.loader.hide();
-    }
+    this.loader.show();
+    await this.exploreComponent.render();
+    this.loader.hide();
   }
 
   showSavedView() {
@@ -538,7 +535,12 @@ class LotusApp {
         this.modal.close();
       }
     }
-    this.router.navigate(`search=${encodeURIComponent(tag)}`);
+    const clean = (tag || "").trim();
+    if (clean) {
+      StorageUtils.addRecentSearch(clean);
+      this.exploreService.clearIdeasCache();
+    }
+    this.router.navigate(`search=${encodeURIComponent(clean)}`);
   }
 
   async fetchMorePins(reset = false) {

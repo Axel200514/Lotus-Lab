@@ -270,6 +270,11 @@ export class ExploreService {
     }));
   }
 
+  clearIdeasCache() {
+    this.ideasMemoryCache = null;
+    StorageUtils.clearIdeasCache();
+  }
+
   findPreviewForQuery(query, savedPins, exploreData) {
     const cleanQ = query.toLowerCase();
 
@@ -282,6 +287,18 @@ export class ExploreService {
     });
     if (matchingSaved && matchingSaved.previewUrl) {
       return matchingSaved.previewUrl;
+    }
+
+    const viewedPins = StorageUtils.getViewedPins();
+    const matchingViewed = viewedPins.find((p) => {
+      if (!p || !Array.isArray(p.tags)) return false;
+      return p.tags.some((t) => {
+        const raw = typeof t === "string" ? t : t.query || t.label;
+        return (raw || "").toLowerCase().includes(cleanQ);
+      });
+    });
+    if (matchingViewed && matchingViewed.previewUrl) {
+      return matchingViewed.previewUrl;
     }
 
     if (Array.isArray(exploreData.boards)) {
