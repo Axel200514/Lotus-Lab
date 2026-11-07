@@ -9,20 +9,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const updateIndicator = (activeBtn) => {
     if (!indicator || !activeBtn || !track) return;
-    const trackRect = track.getBoundingClientRect();
-    const btnRect = activeBtn.getBoundingClientRect();
-    const offsetLeft = btnRect.left - trackRect.left + track.scrollLeft;
-    indicator.style.width = `${btnRect.width}px`;
+    const offsetLeft = activeBtn.offsetLeft;
+    const width = activeBtn.offsetWidth;
+    indicator.style.width = `${width}px`;
     indicator.style.transform = `translate3d(${offsetLeft}px, 0, 0)`;
 
     const trackLeft = track.scrollLeft;
     const trackWidth = track.clientWidth;
-    const btnLeft = activeBtn.offsetLeft;
-    const btnWidth = activeBtn.offsetWidth;
 
-    if (btnLeft < trackLeft || btnLeft + btnWidth > trackLeft + trackWidth) {
+    if (offsetLeft < trackLeft || offsetLeft + width > trackLeft + trackWidth) {
       track.scrollTo({
-        left: Math.max(0, btnLeft - (trackWidth - btnWidth) / 2),
+        left: Math.max(0, offsetLeft - (trackWidth - width) / 2),
         behavior: "smooth"
       });
     }
@@ -55,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const header = document.querySelector(".legal-header");
       const navContainer = document.querySelector(".legal-segmented-container");
-      const offsetPadding = (header?.offsetHeight || 56) + (navContainer?.offsetHeight || 48) + 16;
+      const offsetPadding = (header?.offsetHeight || 0) + (navContainer?.offsetHeight || 0) + 16;
       const elementPosition = targetEl.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - offsetPadding;
 
@@ -66,37 +63,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
       scrollTimeout = setTimeout(() => {
         isManualScroll = false;
-      }, 700);
+      }, 750);
     });
   });
 
   const onScroll = () => {
     if (isManualScroll || sections.length === 0) return;
 
-    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
     const viewportHeight = window.innerHeight;
-    const docHeight = document.documentElement.scrollHeight;
+    const midPoint = viewportHeight * 0.45;
 
-    if (scrollY + viewportHeight >= docHeight - 40) {
-      activateTab(sections[sections.length - 1].id);
-      return;
-    }
+    let closestSection = sections[0];
+    let minDistance = Infinity;
 
-    const header = document.querySelector(".legal-header");
-    const navContainer = document.querySelector(".legal-segmented-container");
-    const threshold = (header?.offsetHeight || 56) + (navContainer?.offsetHeight || 48) + 24;
-
-    let currentSectionId = sections[0].id;
     for (let i = 0; i < sections.length; i++) {
-      const rect = sections[i].getBoundingClientRect();
-      if (rect.top <= threshold) {
-        currentSectionId = sections[i].id;
-      } else {
+      const section = sections[i];
+      const rect = section.getBoundingClientRect();
+
+      if (rect.top <= midPoint && rect.bottom >= midPoint) {
+        closestSection = section;
         break;
+      }
+
+      const center = rect.top + rect.height / 2;
+      const distance = Math.abs(center - midPoint);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestSection = section;
       }
     }
 
-    activateTab(currentSectionId);
+    activateTab(closestSection.id);
   };
 
   let ticking = false;
