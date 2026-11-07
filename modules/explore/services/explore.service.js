@@ -1,10 +1,10 @@
 import { API_CONFIG } from "../../../app/app.config.js";
 import { StorageUtils } from "../../shared/utils/storage.utils.js";
 
-const CACHE_KEY = "lotus_explore_cache_v14";
+const CACHE_KEY = "lotus_explore_cache_v15";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v14";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v15";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 13; i++) {
+      for (let i = 1; i <= 14; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
