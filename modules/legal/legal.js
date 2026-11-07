@@ -30,6 +30,13 @@ document.addEventListener("DOMContentLoaded", () => {
     updateIndicator(initialActive);
   }
 
+  const yearEl = document.getElementById("legal-copyright-year");
+  if (yearEl) {
+    const startYear = 2026;
+    const currentYear = new Date().getFullYear();
+    yearEl.textContent = currentYear > startYear ? `${startYear}–${currentYear}` : `${startYear}`;
+  }
+
   const activateTab = (targetId) => {
     const matchingTab = document.querySelector(`.legal-tab-btn[data-target="${targetId}"]`);
     if (!matchingTab || matchingTab.classList.contains("active")) return;
