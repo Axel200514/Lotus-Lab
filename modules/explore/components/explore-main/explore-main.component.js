@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=3.0";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=3.0";
+import { ExploreService } from "../../services/explore.service.js?v=3.1";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=3.1";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -274,7 +274,7 @@ export class ExploreMainComponent {
 
     section.addEventListener("click", () => {
       if (typeof this.onTopicSelect === "function") {
-        this.onTopicSelect(item.query, item.title);
+        this.onTopicSelect(item.query || item.tag, item.title);
       }
     });
 

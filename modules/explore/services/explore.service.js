@@ -1,7 +1,7 @@
 import { API_CONFIG } from "../../../app/app.config.js";
 import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js";
 
-const CACHE_KEY = "lotus_explore_cache_v15";
+const CACHE_KEY = "lotus_explore_cache_v16";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
 const IDEAS_CACHE_KEY = "lotus_ideas_cache_v20";
@@ -26,17 +26,25 @@ export class ExploreService {
     if (!forceRefresh) {
       const cached = this.getStoredCache();
       if (cached) {
-        this.memoryCache = cached;
-        return cached;
+        if (this.isSanitized(cached)) {
+          this.memoryCache = cached;
+          return cached;
+        }
+        const sanitized = await this.sanitizeExploreData(cached);
+        this.saveStoredCache(sanitized);
+        this.memoryCache = sanitized;
+        return sanitized;
       }
     }
 
     if (!this.pendingPromise) {
       this.pendingPromise = this.fetchExploreData()
-        .then((data) => {
+        .then(async (data) => {
           if (this.isValidPayload(data)) {
-            this.saveStoredCache(data);
-            this.memoryCache = data;
+            const sanitized = await this.sanitizeExploreData(data);
+            this.saveStoredCache(sanitized);
+            this.memoryCache = sanitized;
+            return sanitized;
           }
           this.pendingPromise = null;
           return this.memoryCache || data;
@@ -397,5 +405,180 @@ export class ExploreService {
       .replace(/_/g, " ")
       .trim()
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  normalizeTopicKey(str) {
+    return String(str || "")
+      .toLowerCase()
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/\([^)]*\)/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  isSanitized(data) {
+    if (!this.isValidPayload(data)) return false;
+    if (!Array.isArray(data.popularSections) || data.popularSections.length < 3) return false;
+    const existingBoardKeys = new Set(
+      (data.boards || []).flatMap((b) => [this.normalizeTopicKey(b.title), this.normalizeTopicKey(b.tag)]).filter(Boolean)
+    );
+    const seen = new Set();
+    for (const s of data.popularSections) {
+      if (!s || !Array.isArray(s.thumbnails) || s.thumbnails.length < 4) return false;
+      const normTitle = this.normalizeTopicKey(s.title);
+      const normTag = this.normalizeTopicKey(s.tag);
+      if (existingBoardKeys.has(normTitle) || existingBoardKeys.has(normTag)) return false;
+      if (seen.has(normTitle)) return false;
+      seen.add(normTitle);
+    }
+    return true;
+  }
+
+  async sanitizeExploreData(data) {
+    if (!data || !Array.isArray(data.boards)) return data;
+    const boards = data.boards;
+    const rawSections = Array.isArray(data.popularSections) ? data.popularSections : [];
+
+    const existingBoardKeys = new Set(
+      boards.flatMap((b) => [this.normalizeTopicKey(b.title), this.normalizeTopicKey(b.tag)]).filter(Boolean)
+    );
+
+    const seenSectionKeys = new Set();
+    const validSections = [];
+
+    rawSections.forEach((s) => {
+      if (!s || !Array.isArray(s.thumbnails) || s.thumbnails.length < 4) return;
+      const normTitle = this.normalizeTopicKey(s.title);
+      const normTag = this.normalizeTopicKey(s.tag);
+      if (existingBoardKeys.has(normTitle) || existingBoardKeys.has(normTag)) return;
+      if (seenSectionKeys.has(normTitle)) return;
+      seenSectionKeys.add(normTitle);
+      validSections.push(s);
+    });
+
+    const targetCount = Math.max(3, rawSections.length);
+    if (validSections.length < targetCount) {
+      const candidates = await this.getReplacementCandidates(existingBoardKeys, seenSectionKeys);
+      for (const candTag of candidates) {
+        if (validSections.length >= targetCount) break;
+        const normCand = this.normalizeTopicKey(candTag);
+        if (existingBoardKeys.has(normCand) || seenSectionKeys.has(normCand)) continue;
+
+        const replacementSection = await this.fetchSectionForTag(candTag);
+        if (replacementSection && replacementSection.thumbnails.length >= 4) {
+          seenSectionKeys.add(normCand);
+          validSections.push(replacementSection);
+        }
+      }
+    }
+
+    return {
+      ...data,
+      popularSections: validSections
+    };
+  }
+
+  async getReplacementCandidates(existingBoardKeys, seenSectionKeys) {
+    const dynamicKnownTags = new Set([...existingBoardKeys, ...seenSectionKeys]);
+    const candidates = [];
+    const seen = new Set();
+
+    const addCand = (rawTag) => {
+      if (!rawTag || typeof rawTag !== "string") return;
+      const clean = rawTag.trim().toLowerCase().replace(/\s+/g, "_");
+      if (clean.length < 3 || /^\d/.test(clean) || ATTR_REGEX.test(clean)) return;
+      const norm = this.normalizeTopicKey(clean);
+      if (existingBoardKeys.has(norm) || seenSectionKeys.has(norm) || seen.has(norm)) return;
+      seen.add(norm);
+      candidates.push(clean);
+    };
+
+    const userTaste = StorageUtils.getUserTasteTags(dynamicKnownTags);
+    userTaste.forEach(addCand);
+
+    const saved = StorageUtils.getSavedPins();
+    saved.forEach((p) => {
+      if (p.title) addCand(p.title);
+      if (Array.isArray(p.tags)) {
+        p.tags.forEach((t) => {
+          const raw = typeof t === "string" ? t : t.query || t.label;
+          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) addCand(raw);
+        });
+      }
+    });
+
+    const viewed = StorageUtils.getViewedPins();
+    viewed.forEach((p) => {
+      if (p.title) addCand(p.title);
+      if (Array.isArray(p.tags)) {
+        p.tags.forEach((t) => {
+          const raw = typeof t === "string" ? t : t.query || t.label;
+          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) addCand(raw);
+        });
+      }
+    });
+
+    const searches = StorageUtils.getRecentSearches();
+    searches.forEach((s) => {
+      if (StorageUtils.isThematicTag(s, dynamicKnownTags)) addCand(s);
+    });
+
+    if (candidates.length < 5) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=&limit=25`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const posts = await res.json();
+          const freq = new Map();
+          if (Array.isArray(posts)) {
+            posts.forEach((p) => {
+              (p.tags || "").split(" ").forEach((t) => {
+                const clean = t.trim().toLowerCase();
+                if (StorageUtils.isThematicTag(clean, dynamicKnownTags)) {
+                  freq.set(clean, (freq.get(clean) || 0) + 1);
+                }
+              });
+            });
+            [...freq.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .forEach(([tag]) => addCand(tag));
+          }
+        }
+      } catch {}
+    }
+
+    return candidates;
+  }
+
+  async fetchSectionForTag(tag) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&limit=6`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      const posts = await res.json();
+      if (!Array.isArray(posts) || posts.length < 4) return null;
+      const thumbnails = posts.map((p) => ({
+        url: p.sample_url || p.preview_url,
+        width: p.sample_width || p.width || 240,
+        height: p.sample_height || p.height || 320
+      }));
+      return {
+        id: `pop-rep-${Date.now()}-${tag.replace(/[^a-z0-9]/gi, "_")}`,
+        title: this.formatTitle(tag),
+        tag: tag,
+        query: tag,
+        thumbnails: thumbnails
+      };
+    } catch {
+      return null;
+    }
   }
 }
