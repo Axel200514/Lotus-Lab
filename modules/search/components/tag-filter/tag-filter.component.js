@@ -92,6 +92,10 @@ export class TagFilterComponent {
     });
   }
 
+  clearActive() {
+    this.chips.forEach((c) => c.classList.remove("active"));
+  }
+
   setActiveChip(selectedChip) {
     this.chips.forEach((c) => c.classList.remove("active"));
     if (selectedChip) {

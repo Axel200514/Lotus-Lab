@@ -1,7 +1,7 @@
 const STORAGE_KEY = "lotus_saved_pins";
 const RECENT_SEARCHES_KEY = "lotus_recent_searches";
 const VIEWED_PINS_KEY = "lotus_viewed_pins_history";
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v20";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v21";
 
 export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
 
@@ -117,6 +117,7 @@ export class StorageUtils {
   static clearIdeasCache() {
     try {
       localStorage.removeItem(IDEAS_CACHE_KEY);
+      localStorage.removeItem("lotus_ideas_cache_v20");
       localStorage.removeItem("lotus_ideas_cache_v19");
       localStorage.removeItem("lotus_ideas_cache_v18");
       localStorage.removeItem("lotus_ideas_cache_v17");

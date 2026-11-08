@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js";
-import { PinModel } from "../../shared/models/pin.model.js";
+import { API_CONFIG } from "../../../app/app.config.js?v=3.4";
+import { PinModel } from "../../shared/models/pin.model.js?v=3.4";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
@@ -36,7 +36,28 @@ const BOORU_SPECIAL = {
   zorro: "fox_ears",
   zorros: "fox_ears",
   kitsune: "fox_ears",
-  genshin: "genshin_impact"
+  genshin: "genshin_impact",
+  madoka: "mahou_shoujo_madoka_magica",
+  madoka_magica: "mahou_shoujo_madoka_magica",
+  evangelion: "neon_genesis_evangelion",
+  frieren: "sousou_no_frieren",
+  bocchi: "bocchi_the_rock!",
+  bocchi_the_rock: "bocchi_the_rock!",
+  chainsaw_man: "chainsaw_man",
+  jujutsu: "jujutsu_kaisen",
+  jujutsu_kaisen: "jujutsu_kaisen",
+  kimetsu: "kimetsu_no_yaiba",
+  demon_slayer: "kimetsu_no_yaiba",
+  attack_on_titan: "shingeki_no_kyojin",
+  shingeki: "shingeki_no_kyojin",
+  my_hero_academia: "boku_no_hero_academia",
+  boku_no_hero: "boku_no_hero_academia",
+  fate: "fate/grand_order",
+  nier: "nier:_automata",
+  nier_automata: "nier:_automata",
+  star_rail: "honkai:_star_rail",
+  honkai_star_rail: "honkai:_star_rail",
+  zzz: "zenless_zone_zero"
 };
 
 export class PinService {
@@ -68,7 +89,9 @@ export class PinService {
 
   normalizeQuery(q) {
     const clean = (q || "").trim().toLowerCase();
-    return BOORU_SPECIAL[clean] || clean;
+    const cleanUnderscored = clean.replace(/[\s-]+/g, "_");
+    const cleanSpaced = clean.replace(/[_-]+/g, " ");
+    return BOORU_SPECIAL[clean] || BOORU_SPECIAL[cleanUnderscored] || BOORU_SPECIAL[cleanSpaced] || clean;
   }
 
   toSingular(word) {
@@ -341,12 +364,20 @@ export class PinService {
       } catch {}
     }
 
-    const directCandidates = [raw];
+    const normalized = this.normalizeQuery(raw);
+    const directCandidates = [];
+    if (normalized && normalized !== raw) {
+      directCandidates.push(normalized);
+    }
     if (raw.includes(" ")) {
-      directCandidates.unshift(raw.replace(/\s+/g, "_"));
-    } else if (raw.includes("_")) {
+      directCandidates.push(raw.replace(/\s+/g, "_"));
+    }
+    directCandidates.push(raw);
+    if (raw.includes("_")) {
       directCandidates.push(raw.replace(/_/g, " "));
     }
+
+    let fallbackBatch = null;
 
     for (const directTag of directCandidates) {
       const directUrl = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(directTag)}&page=${page}&limit=${limit}`;
@@ -362,8 +393,13 @@ export class PinService {
           if (safeText.startsWith("[")) {
             const data = JSON.parse(safeText);
             if (Array.isArray(data) && data.length > 0) {
-              this.tagResolutionCache.set(raw, directTag);
-              return data.map((item) => PinModel.fromSafebooru(item));
+              if (data.length >= 4 || directTag === normalized) {
+                this.tagResolutionCache.set(raw, directTag);
+                return data.map((item) => PinModel.fromSafebooru(item));
+              }
+              if (!fallbackBatch) {
+                fallbackBatch = { tag: directTag, data };
+              }
             }
           }
         }
@@ -391,6 +427,11 @@ export class PinService {
           return data.map((item) => PinModel.fromSafebooru(item));
         }
       } catch {}
+    }
+
+    if (fallbackBatch && Array.isArray(fallbackBatch.data) && fallbackBatch.data.length > 0) {
+      this.tagResolutionCache.set(raw, fallbackBatch.tag);
+      return fallbackBatch.data.map((item) => PinModel.fromSafebooru(item));
     }
 
     return [];

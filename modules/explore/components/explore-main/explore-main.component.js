@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=3.2";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=3.2";
+import { ExploreService } from "../../services/explore.service.js?v=3.4";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=3.4";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {

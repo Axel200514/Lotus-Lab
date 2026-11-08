@@ -109,15 +109,4 @@
   transform: scale(0.94);
 }
 
-.end-legal-link {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 0.85rem;
-  color: var(--brand-lotus);
-  text-decoration: none;
-  transition: opacity var(--transition-fast);
-}
 
-.end-legal-link:hover {
-  text-decoration: underline;
-}

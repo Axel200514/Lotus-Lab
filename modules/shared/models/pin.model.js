@@ -1,4 +1,5 @@
 const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
+const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room)\)$/i;
 
 const isCleanName = (tag) => {
   return tag.length > 2 && !/^\d/.test(tag) && !tag.startsWith("&") && !ATTR_REGEX.test(tag);
@@ -36,7 +37,7 @@ export class PinModel {
     let characterTag = item.character || "";
     if (!characterTag) {
       characterTag =
-        filteredTags.find((t) => t.includes("(") && t.includes(")")) ||
+        filteredTags.find((t) => t.includes("(") && t.includes(")") && !NON_CHARACTER_SUFFIX_REGEX.test(t)) ||
         filteredTags.find((t) => /^(princess|queen|king|lord|lady)_/i.test(t)) ||
         filteredTags.find((t) => t.includes("_") && !t.includes(":") && t !== "triforce") ||
         filteredTags[0] ||
@@ -63,6 +64,13 @@ export class PinModel {
     let authorHref = `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`;
     let domain = "safebooru.org";
 
+    const explicitArtistTag = filteredTags.find((t) => t.endsWith("_(artist)"));
+    if (!authorName && explicitArtistTag) {
+      const cleanArtist = explicitArtistTag.replace(/_\(artist\)$/, "");
+      authorName = `@${cleanArtist}`;
+      authorHref = `https://safebooru.org/index.php?page=post&s=list&tags=${encodeURIComponent(cleanArtist)}`;
+    }
+
     if (!authorName && (src.includes("twitter.com/") || src.includes("x.com/"))) {
       const match = src.match(/(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)/);
       if (match && match[1] && match[1] !== "i") {
@@ -82,7 +90,8 @@ export class PinModel {
     } else if (!authorName && (src.includes("pixiv.net") || src.includes("pximg.net"))) {
       domain = "pixiv.net";
       authorName = "Pixiv Artist";
-      authorHref = src.startsWith("http") ? src : "https://www.pixiv.net";
+      const pixivMatch = src.match(/(?:artworks\/|illust_id=|\/|_)(\d{6,12})(?:_p|\.|$)/);
+      authorHref = pixivMatch ? `https://www.pixiv.net/artworks/${pixivMatch[1]}` : (src.startsWith("http") ? src : "https://www.pixiv.net");
     } else if (!authorName && src.includes("artstation.com/")) {
       const match = src.match(/artstation\.com\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
@@ -109,8 +118,7 @@ export class PinModel {
     }
 
     if (!authorName) {
-      const explicitArtistTag = filteredTags.find((t) => t.endsWith("_(artist)"));
-      const candidateArtistTag = explicitArtistTag || filteredTags.find((t) => t !== characterTag && !t.includes(":") && t !== "triforce");
+      const candidateArtistTag = filteredTags.find((t) => t !== characterTag && !t.includes(":") && t !== "triforce");
       if (candidateArtistTag) {
         const cleanArtist = candidateArtistTag.replace(/_\(artist\)$/, "");
         authorName = `@${cleanArtist}`;
@@ -132,7 +140,7 @@ export class PinModel {
       tags: formattedTags,
       author: authorName,
       authorHref: isSafeHttpUrl(authorHref) ? authorHref : `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`,
-      source: isSafeHttpUrl(src) ? src : (isSafeHttpUrl(authorHref) ? authorHref : `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`),
+      source: isSafeHttpUrl(authorHref) && domain === "pixiv.net" ? authorHref : (isSafeHttpUrl(src) ? src : (isSafeHttpUrl(authorHref) ? authorHref : `https://safebooru.org/index.php?page=post&s=view&id=${item.id}`)),
       sourceDomain: domain,
       createdAt: item.change ? new Date(item.change * 1000).toISOString() : new Date().toISOString()
     });

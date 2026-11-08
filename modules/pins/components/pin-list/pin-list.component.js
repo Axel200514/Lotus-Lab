@@ -1,5 +1,5 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js";
-import { PinCardComponent } from "../pin-card/pin-card.component.js";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=3.4";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=3.4";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
