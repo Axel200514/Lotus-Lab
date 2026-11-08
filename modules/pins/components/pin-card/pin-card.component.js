@@ -6,6 +6,9 @@ export class PinCardComponent {
   render(pin, isSaved, callbacks = {}) {
     const clone = this.template.content.cloneNode(true);
     const card = clone.querySelector(".pin-card");
+    if (card && pin.id) {
+      card.dataset.id = pin.id;
+    }
     const mediaWrapper = clone.querySelector(".pin-media-wrapper");
     const img = clone.querySelector(".pin-image");
     const titleEl = clone.querySelector(".pin-title");

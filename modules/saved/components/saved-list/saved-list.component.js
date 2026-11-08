@@ -21,6 +21,14 @@ export class SavedListComponent {
     this.pinListComponent.renderPins(saved);
   }
 
+  removePin(pinId) {
+    if (!pinId) return;
+    this.pinListComponent.removePin(pinId);
+    if (this.pinListComponent.renderedPins.length === 0) {
+      this.renderSavedEmpty();
+    }
+  }
+
   renderSavedEmpty() {
     const container = this.pinListComponent.container;
     container.textContent = "";

@@ -1,5 +1,5 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=3.4";
-import { PinCardComponent } from "../pin-card/pin-card.component.js?v=3.4";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=3.7";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=3.7";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
@@ -40,6 +40,15 @@ export class PinListComponent {
   clear() {
     this.initColumns();
     this.renderedPins = [];
+  }
+
+  removePin(pinId) {
+    if (!pinId) return;
+    this.renderedPins = this.renderedPins.filter((p) => p.id !== pinId);
+    const card = this.container.querySelector(`.pin-card[data-id="${pinId}"]`);
+    if (card) {
+      card.remove();
+    }
   }
 
   handleResize() {
