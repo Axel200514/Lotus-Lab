@@ -48,6 +48,9 @@
   border-radius: var(--radius-full);
   padding: 4px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .nav-btn {
@@ -63,6 +66,9 @@
   background: transparent;
   cursor: pointer;
   will-change: transform;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
   transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-spring);
 }
 
@@ -90,6 +96,36 @@
   animation: bubble-pop 320ms var(--ease-spring);
 }
 
+.nav-btn.refreshing .nav-icon {
+  animation: nav-icon-spin 600ms linear infinite;
+}
+
+.nav-btn.tap-bounce {
+  animation: nav-btn-bounce 200ms var(--ease-spring);
+}
+
+@keyframes nav-icon-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes nav-btn-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .nav-btn {
+    padding: 7px 13px;
+    font-size: 0.86rem;
+    gap: 6px;
+  }
+  .brand-name {
+    font-size: 1.18rem;
+  }
+}
+
 @media (max-width: 768px) {
   .brand-name {
     display: none;
@@ -100,7 +136,7 @@
   }
   .nav-links {
     position: fixed;
-    bottom: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     background: rgba(18, 20, 27, 0.72);
@@ -110,8 +146,9 @@
     border-radius: var(--radius-full);
     padding: 6px 10px;
     gap: 6px;
-    z-index: 80;
+    z-index: 300;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
   }
   .nav-btn {
     flex-direction: column;
