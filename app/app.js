@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=2.3";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=2.3";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=2.3";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=2.3";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=2.3";
-import { PinService } from "../modules/pins/services/pin.service.js?v=2.3";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=2.3";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=2.3";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=2.3";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=2.3";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=2.3";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=2.3";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=2.3";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=2.3";
+import { AppRouter } from "./app.routes.js?v=2.9";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=2.9";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=2.9";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=2.9";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=2.9";
+import { PinService } from "../modules/pins/services/pin.service.js?v=2.9";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=2.9";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=2.9";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=2.9";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=2.9";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=2.9";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=2.9";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=2.9";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=2.9";
 
 class LotusApp {
   constructor() {
@@ -44,7 +44,12 @@ class LotusApp {
 
     this.modal = new ModalComponent(
       (tag) => this.handleTagSelection(tag),
-      (pin) => this.savedService.toggleSave(pin),
+      (pin) => {
+        const isSaved = this.savedService.toggleSave(pin);
+        this.exploreService.clearIdeasCache();
+        this.hasRenderedExplore = false;
+        return isSaved;
+      },
       (pin, page, limit, excludeIds) => this.pinService.getRelatedPins(pin, page, limit, excludeIds)
     );
 
