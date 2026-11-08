@@ -1,17 +1,52 @@
-import { AppRouter } from "./app.routes.js?v=3.4";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=3.4";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=3.4";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=3.4";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=3.4";
-import { PinService } from "../modules/pins/services/pin.service.js?v=3.4";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=3.4";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=3.4";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=3.4";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=3.4";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=3.4";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=3.4";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=3.4";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=3.4";
+import { AppRouter } from "./app.routes.js?v=3.7";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=3.7";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=3.7";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=3.7";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=3.7";
+import { PinService } from "../modules/pins/services/pin.service.js?v=3.7";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=3.7";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=3.7";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=3.7";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=3.7";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=3.7";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=3.7";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=3.7";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=3.7";
+
+const FALLBACK_TAGS = [
+  { label: "Genshin Impact", query: "genshin_impact" },
+  { label: "Honkai Star Rail", query: "honkai:_star_rail" },
+  { label: "Zenless Zone Zero", query: "zenless_zone_zero" },
+  { label: "Undertale", query: "undertale" },
+  { label: "Touhou", query: "touhou" },
+  { label: "Deltarune", query: "deltarune" },
+  { label: "Blue Archive", query: "blue_archive" },
+  { label: "Umamusume", query: "umamusume" },
+  { label: "Project Moon", query: "project_moon" },
+  { label: "Fate", query: "fate/grand_order" },
+  { label: "Arknights", query: "arknights" },
+  { label: "Hololive", query: "hololive" },
+  { label: "Vocaloid", query: "vocaloid" },
+  { label: "Frieren", query: "sousou_no_frieren" },
+  { label: "Bocchi the Rock", query: "bocchi_the_rock!" },
+  { label: "Chainsaw Man", query: "chainsaw_man" },
+  { label: "Jujutsu Kaisen", query: "jujutsu_kaisen" },
+  { label: "Evangelion", query: "neon_genesis_evangelion" },
+  { label: "Madoka Magica", query: "mahou_shoujo_madoka_magica" },
+  { label: "Cyberpunk", query: "cyberpunk" },
+  { label: "NieR Automata", query: "nier:_automata" },
+  { label: "Persona", query: "persona_5" },
+  { label: "Pokemon", query: "pokemon" },
+  { label: "Zelda", query: "the_legend_of_zelda" },
+  { label: "Elden Ring", query: "elden_ring" },
+  { label: "Oshi no Ko", query: "oshi_no_ko" },
+  { label: "Spy x Family", query: "spy_x_family" },
+  { label: "Glitchtale", query: "glitchtale" },
+  { label: "Pixel Art", query: "pixel_art" },
+  { label: "Scenery", query: "scenery" },
+  { label: "Wallpaper", query: "wallpaper" },
+  { label: "Retro 90s", query: "90s_retro" }
+];
 
 class LotusApp {
   constructor() {
@@ -28,6 +63,7 @@ class LotusApp {
     this.hasRenderedExplore = false;
 
     this.gridContainer = document.getElementById("pins-grid");
+    this.savedGridContainer = document.getElementById("saved-grid");
     this.exploreView = document.getElementById("explore-view");
     this.template = document.getElementById("pin-card-template");
     this.categoriesContainer = document.getElementById("categories-bar");
@@ -40,6 +76,11 @@ class LotusApp {
     this.ptrIndicator = document.getElementById("pull-to-refresh");
     this.ptrIcon = this.ptrIndicator ? this.ptrIndicator.querySelector(".ptr-icon") : null;
 
+    this.feedScrollPosition = 0;
+    this.feedPage = 1;
+    this.feedHasMore = true;
+    this.isFeedActive = false;
+
     this.loader = new LoaderComponent();
 
     this.modal = new ModalComponent(
@@ -48,6 +89,9 @@ class LotusApp {
         const isSaved = this.savedService.toggleSave(pin);
         this.exploreService.clearIdeasCache();
         this.hasRenderedExplore = false;
+        if (!isSaved && this.currentMode === "saved") {
+          this.savedList.removePin(pin.id);
+        }
         return isSaved;
       },
       (pin, page, limit, excludeIds) => this.pinService.getRelatedPins(pin, page, limit, excludeIds)
@@ -65,8 +109,20 @@ class LotusApp {
       }
     );
 
+    this.savedPinList = new PinListComponent(
+      this.savedGridContainer,
+      this.template,
+      this.savedService,
+      {
+        onPinClick: (pin) => {
+          const isSaved = this.savedService.isSaved(pin.id);
+          this.modal.open(pin, isSaved);
+        }
+      }
+    );
+
     this.savedList = new SavedListComponent(
-      this.pinList,
+      this.savedPinList,
       this.savedService,
       this.loader,
       () => this.router.navigate(APP_ROUTES.explore)
@@ -90,20 +146,86 @@ class LotusApp {
         if (tag) {
           StorageUtils.addRecentSearch(tag);
           this.exploreService.clearIdeasCache();
-          this.router.navigate(`topic=${encodeURIComponent(tag)}`);
+          this.showHomeTopicView(tag);
         } else {
-          this.router.navigate(APP_ROUTES.home);
+          this.showFeedView();
         }
       }
     );
 
-    this.loadDynamicTags();
+    this.tagFilter.setTags(this.pinService.shuffle([...FALLBACK_TAGS]));
+    const cachedExplore = this.exploreService.getStoredCache();
+    if (cachedExplore) {
+      this.populateDynamicTags(cachedExplore);
+    } else {
+      setTimeout(() => {
+        if (!this.hasLoadedTrendingTags) {
+          this.loadDynamicTags();
+        }
+      }, 1800);
+    }
+
+    let homeTapCount = 0;
+    let homeTapTimer = null;
 
     this.navbar = new NavbarComponent((route) => {
-      if ((route === APP_ROUTES.home || route === "") && this.currentMode === "feed" && !window.location.hash) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+      if (this.modal && this.modal.isOpen) {
+        if (typeof this.modal.closeForNavigation === "function") {
+          this.modal.closeForNavigation();
+        } else {
+          this.modal.close();
+        }
+      }
+
+      if (route === APP_ROUTES.home || route === "") {
+        const isAlreadyOnHome = (this.currentMode === "feed" || !this.currentMode) && (!window.location.hash || window.location.hash === "#" || window.location.hash === `#${APP_ROUTES.home}` || window.location.hash === "#/");
+        if (isAlreadyOnHome) {
+          homeTapCount += 1;
+          this.navbar.triggerTapAnimation("");
+          clearTimeout(homeTapTimer);
+          homeTapTimer = setTimeout(() => {
+            homeTapCount = 0;
+          }, 1800);
+
+          if (homeTapCount >= 4) {
+            homeTapCount = 0;
+            clearTimeout(homeTapTimer);
+            this.navbar.setRefreshing("", true);
+            if (this.ptrIndicator) {
+              this.ptrIndicator.style.transition = "opacity 0.25s ease, transform 0.25s ease";
+              this.ptrIndicator.style.opacity = "1";
+              this.ptrIndicator.style.transform = "translate3d(-50%, 15px, 0)";
+              this.ptrIndicator.classList.add("refreshing");
+            }
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            this.triggerFeedRefresh().finally(() => {
+              this.navbar.setRefreshing("", false);
+              setTimeout(() => {
+                if (this.ptrIndicator) {
+                  this.ptrIndicator.classList.remove("refreshing");
+                  this.resetPullIndicator();
+                }
+              }, 400);
+            });
+            return;
+          }
+
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        homeTapCount = 1;
+        this.navbar.triggerTapAnimation("");
+        clearTimeout(homeTapTimer);
+        homeTapTimer = setTimeout(() => {
+          homeTapCount = 0;
+        }, 1800);
+        this.router.navigate(route);
         return;
       }
+
+      homeTapCount = 0;
+      clearTimeout(homeTapTimer);
       this.router.navigate(route);
     });
 
@@ -139,17 +261,25 @@ class LotusApp {
 
   setExploreViewVisible(isExplore) {
     this.exploreView.classList.toggle("d-none", !isExplore);
+    if (this.savedGridContainer) this.savedGridContainer.classList.add("d-none");
     this.gridContainer.classList.toggle("d-none", isExplore);
+  }
+
+  setSavedViewVisible(isSaved) {
+    if (this.savedGridContainer) this.savedGridContainer.classList.toggle("d-none", !isSaved);
+    this.exploreView.classList.add("d-none");
+    this.gridContainer.classList.toggle("d-none", isSaved);
   }
 
   async showPinModalById(pinId) {
     if (!pinId) return;
 
-    if (this.pinList.renderedPins.length === 0) {
+    if (this.pinList.renderedPins.length === 0 && !this.isFeedActive) {
       this.showFeedView();
     }
 
     const existing = this.pinList.renderedPins.find((p) => p.id === pinId)
+      || (this.savedPinList && this.savedPinList.renderedPins.find((p) => p.id === pinId))
       || this.savedService.getSavedPins().find((p) => p.id === pinId);
 
     if (existing) {
@@ -291,6 +421,7 @@ class LotusApp {
       this.exploreService.memoryCache = null;
       this.exploreService.ideasMemoryCache = null;
       await this.exploreComponent.render(true);
+      this.hasRenderedExplore = true;
       return;
     }
 
@@ -314,12 +445,24 @@ class LotusApp {
       return;
     }
 
+    this.feedScrollPosition = 0;
+    this.feedPage = 1;
+    this.feedHasMore = true;
+    this.isFeedActive = true;
     this.pinList.clear();
     this.pinService.resetSession();
     await this.fetchMorePins(true);
   }
 
   showFeedView() {
+    if (this.modal && this.modal.isOpen) {
+      if (typeof this.modal.closeForNavigation === "function") {
+        this.modal.closeForNavigation();
+      } else {
+        this.modal.close();
+      }
+    }
+
     if (this.currentMode === "feed" && this.pinList.renderedPins.length > 0) {
       return;
     }
@@ -327,18 +470,34 @@ class LotusApp {
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
+    this.setSavedViewVisible(false);
     this.setExploreViewVisible(false);
     this.searchBar.setValue("");
     this.tagFilter.selectByTag("");
 
-    if (!this.hasLoadedTrendingTags) {
-      this.loadDynamicTags();
+    if (this.isFeedActive && this.pinList.renderedPins.length > 0) {
+      this.currentMode = "feed";
+      this.currentQuery = "";
+      this.currentPage = this.feedPage;
+      this.hasMore = this.feedHasMore;
+      this.loader.hide();
+      this.loader.hideEmpty();
+      if (!this.hasMore) {
+        this.loader.showEnd();
+      } else {
+        this.loader.hideEnd();
+      }
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: this.feedScrollPosition, behavior: "instant" });
+      });
+      return;
     }
 
     this.currentMode = "feed";
     this.currentQuery = "";
     this.currentPage = 1;
     this.hasMore = true;
+    this.isFeedActive = true;
     this.pinList.clear();
     this.loader.hideEnd();
     this.loader.hideEmpty();
@@ -348,15 +507,22 @@ class LotusApp {
   }
 
   showHomeTopicView(topic) {
+    if (this.currentMode === "feed") {
+      this.feedScrollPosition = window.scrollY;
+      this.feedPage = this.currentPage;
+      this.feedHasMore = this.hasMore;
+    }
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
+    this.setSavedViewVisible(false);
     this.setExploreViewVisible(false);
 
     if (this.currentMode === "topic" && this.currentQuery === topic && this.pinList.renderedPins.length > 0) {
       return;
     }
 
+    this.isFeedActive = false;
     this.currentQuery = topic;
     this.currentMode = "topic";
     this.currentPage = 1;
@@ -372,6 +538,11 @@ class LotusApp {
   }
 
   showExploreTopicView(topic, title) {
+    if (this.currentMode === "feed") {
+      this.feedScrollPosition = window.scrollY;
+      this.feedPage = this.currentPage;
+      this.feedHasMore = this.hasMore;
+    }
     this.navbar.setActive(APP_ROUTES.explore);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) {
@@ -380,12 +551,14 @@ class LotusApp {
         this.exploreTopicTitle.textContent = title || topic;
       }
     }
+    this.setSavedViewVisible(false);
     this.setExploreViewVisible(false);
 
     if (this.currentMode === "topic" && this.currentQuery === topic && this.pinList.renderedPins.length > 0) {
       return;
     }
 
+    this.isFeedActive = false;
     this.currentQuery = topic;
     this.currentMode = "topic";
     this.currentPage = 1;
@@ -400,15 +573,22 @@ class LotusApp {
   }
 
   showSearchView(query) {
+    if (this.currentMode === "feed") {
+      this.feedScrollPosition = window.scrollY;
+      this.feedPage = this.currentPage;
+      this.feedHasMore = this.hasMore;
+    }
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
+    this.setSavedViewVisible(false);
     this.setExploreViewVisible(false);
 
     if (this.currentMode === "search" && this.currentQuery === query && this.pinList.renderedPins.length > 0) {
       return;
     }
 
+    this.isFeedActive = false;
     this.currentQuery = query;
     this.currentMode = "search";
     this.currentPage = 1;
@@ -424,18 +604,33 @@ class LotusApp {
   }
 
   async showExploreView() {
-    if (this.currentMode === "explore" && this.hasRenderedExplore) {
-      return;
+    if (this.modal && this.modal.isOpen) {
+      if (typeof this.modal.closeForNavigation === "function") {
+        this.modal.closeForNavigation();
+      } else {
+        this.modal.close();
+      }
+    }
+    if (this.currentMode === "feed") {
+      this.feedScrollPosition = window.scrollY;
+      this.feedPage = this.currentPage;
+      this.feedHasMore = this.hasMore;
     }
     this.fetchSeq += 1;
     this.navbar.setActive(APP_ROUTES.explore);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
+    this.setSavedViewVisible(false);
     this.setExploreViewVisible(true);
     this.currentMode = "explore";
     this.hasMore = false;
     this.loader.hideEnd();
     this.loader.hideEmpty();
+
+    if (this.hasRenderedExplore) {
+      this.loader.hide();
+      return;
+    }
 
     this.loader.show();
     await this.exploreComponent.render();
@@ -444,6 +639,18 @@ class LotusApp {
   }
 
   showSavedView() {
+    if (this.modal && this.modal.isOpen) {
+      if (typeof this.modal.closeForNavigation === "function") {
+        this.modal.closeForNavigation();
+      } else {
+        this.modal.close();
+      }
+    }
+    if (this.currentMode === "feed") {
+      this.feedScrollPosition = window.scrollY;
+      this.feedPage = this.currentPage;
+      this.feedHasMore = this.hasMore;
+    }
     if (this.currentMode === "saved") {
       return;
     }
@@ -451,10 +658,9 @@ class LotusApp {
     this.navbar.setActive(APP_ROUTES.saved);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
-    this.setExploreViewVisible(false);
+    this.setSavedViewVisible(true);
     this.currentMode = "saved";
     this.hasMore = false;
-    this.pinList.clear();
     this.loader.hide();
     this.loader.hideEnd();
     this.savedList.render();
@@ -470,77 +676,54 @@ class LotusApp {
     }
   }
 
+  populateDynamicTags(data) {
+    if (!data) return;
+    const tags = [];
+    const seen = new Set();
+
+    const addTag = (title, query) => {
+      if (!title || !query) return;
+      const q = String(query).trim();
+      const l = String(title).replace(/&#039;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+      const keyQ = q.toLowerCase();
+      const keyL = l.toLowerCase();
+      if (!seen.has(keyQ) && !seen.has(keyL)) {
+        seen.add(keyQ);
+        seen.add(keyL);
+        tags.push({ label: l, query: q });
+      }
+    };
+
+    if (Array.isArray(data?.boards)) {
+      data.boards.forEach((b) => addTag(b.title, b.tag));
+    }
+    if (Array.isArray(data?.popularSections)) {
+      data.popularSections.forEach((s) => addTag(s.title, s.tag));
+    }
+
+    for (const fb of FALLBACK_TAGS) {
+      addTag(fb.label, fb.query);
+    }
+
+    if (tags.length > 0) {
+      const activeTag = this.currentMode === "topic" ? this.currentQuery : "";
+      const shuffled = this.pinService.shuffle(tags);
+      this.tagFilter.setTags(shuffled);
+      this.tagFilter.selectByTag(activeTag);
+      this.hasLoadedTrendingTags = true;
+    }
+  }
+
   async loadDynamicTags() {
+    if (this.isLoadingDynamicTags) return;
+    this.isLoadingDynamicTags = true;
     try {
       const data = await this.exploreService.getExploreData();
-      const tags = [];
-      const seen = new Set();
-
-      const addTag = (title, query) => {
-        if (!title || !query) return;
-        const q = String(query).trim();
-        const l = String(title).replace(/&#039;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-        const keyQ = q.toLowerCase();
-        const keyL = l.toLowerCase();
-        if (!seen.has(keyQ) && !seen.has(keyL)) {
-          seen.add(keyQ);
-          seen.add(keyL);
-          tags.push({ label: l, query: q });
-        }
-      };
-
-      if (Array.isArray(data?.boards)) {
-        data.boards.forEach((b) => addTag(b.title, b.tag));
-      }
-      if (Array.isArray(data?.popularSections)) {
-        data.popularSections.forEach((s) => addTag(s.title, s.tag));
-      }
-
-      const fallbacks = [
-        { label: "Genshin Impact", query: "genshin_impact" },
-        { label: "Honkai Star Rail", query: "honkai:_star_rail" },
-        { label: "Zenless Zone Zero", query: "zenless_zone_zero" },
-        { label: "Undertale", query: "undertale" },
-        { label: "Touhou", query: "touhou" },
-        { label: "Deltarune", query: "deltarune" },
-        { label: "Blue Archive", query: "blue_archive" },
-        { label: "Umamusume", query: "umamusume" },
-        { label: "Project Moon", query: "project_moon" },
-        { label: "Fate", query: "fate/grand_order" },
-        { label: "Arknights", query: "arknights" },
-        { label: "Hololive", query: "hololive" },
-        { label: "Vocaloid", query: "vocaloid" },
-        { label: "Frieren", query: "sousou_no_frieren" },
-        { label: "Bocchi the Rock", query: "bocchi_the_rock!" },
-        { label: "Chainsaw Man", query: "chainsaw_man" },
-        { label: "Jujutsu Kaisen", query: "jujutsu_kaisen" },
-        { label: "Evangelion", query: "neon_genesis_evangelion" },
-        { label: "Madoka Magica", query: "mahou_shoujo_madoka_magica" },
-        { label: "Cyberpunk", query: "cyberpunk" },
-        { label: "NieR Automata", query: "nier:_automata" },
-        { label: "Persona", query: "persona_5" },
-        { label: "Pokemon", query: "pokemon" },
-        { label: "Zelda", query: "the_legend_of_zelda" },
-        { label: "Elden Ring", query: "elden_ring" },
-        { label: "Oshi no Ko", query: "oshi_no_ko" },
-        { label: "Spy x Family", query: "spy_x_family" },
-        { label: "Glitchtale", query: "glitchtale" },
-        { label: "Pixel Art", query: "pixel_art" },
-        { label: "Scenery", query: "scenery" },
-        { label: "Wallpaper", query: "wallpaper" },
-        { label: "Retro 90s", query: "90s_retro" }
-      ];
-
-      for (const fb of fallbacks) {
-        addTag(fb.label, fb.query);
-      }
-
-      if (tags.length > 0) {
-        const shuffled = this.pinService.shuffle(tags);
-        this.tagFilter.setTags(shuffled);
-        this.hasLoadedTrendingTags = true;
-      }
+      this.populateDynamicTags(data);
     } catch {}
+    finally {
+      this.isLoadingDynamicTags = false;
+    }
   }
 
   handleTagSelection(tag) {
@@ -597,8 +780,26 @@ class LotusApp {
       this.hasMore = Boolean(result?.hasNextPage);
 
       if (reset && pins.length === 0) {
+        if (this.currentMode === "feed") {
+          this.pinService.resetSession();
+          const retryResult = await this.pinService.getFeedPins(1, API_CONFIG.defaultLimit);
+          if (currentSeq !== this.fetchSeq) return;
+          const retryPins = retryResult?.pins || [];
+          if (retryPins.length > 0) {
+            this.loader.hideEmpty();
+            this.pinList.renderPins(retryPins);
+            this.currentPage = 2;
+            this.hasMore = Boolean(retryResult?.hasNextPage);
+            this.feedPage = 2;
+            this.feedHasMore = this.hasMore;
+            return;
+          }
+        }
         this.loader.showEmpty();
         this.hasMore = false;
+        if (this.currentMode === "feed") {
+          this.feedHasMore = false;
+        }
         return;
       }
 
@@ -606,12 +807,34 @@ class LotusApp {
       this.pinList.renderPins(pins);
       this.currentPage += 1;
 
+      if (this.currentMode === "feed") {
+        this.feedPage = this.currentPage;
+        this.feedHasMore = this.hasMore;
+      }
+
       if (!this.hasMore) {
         this.loader.showEnd();
       }
     } catch {
       if (currentSeq !== this.fetchSeq) return;
       if (reset) {
+        if (this.currentMode === "feed") {
+          try {
+            this.pinService.resetSession();
+            const retryResult = await this.pinService.getFeedPins(1, API_CONFIG.defaultLimit);
+            if (currentSeq !== this.fetchSeq) return;
+            const retryPins = retryResult?.pins || [];
+            if (retryPins.length > 0) {
+              this.loader.hideEmpty();
+              this.pinList.renderPins(retryPins);
+              this.currentPage = 2;
+              this.hasMore = Boolean(retryResult?.hasNextPage);
+              this.feedPage = 2;
+              this.feedHasMore = this.hasMore;
+              return;
+            }
+          } catch {}
+        }
         this.loader.showEmpty();
       }
     } finally {
