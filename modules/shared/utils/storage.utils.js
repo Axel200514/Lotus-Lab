@@ -1,11 +1,24 @@
 const STORAGE_KEY = "lotus_saved_pins";
 const RECENT_SEARCHES_KEY = "lotus_recent_searches";
 const VIEWED_PINS_KEY = "lotus_viewed_pins_history";
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v15";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v20";
 
-const NOISY_TAGS_REGEX = /^(1girl|1boy|multiple_girls|multiple_boys|solo|breasts|hair|eyes|dress|skirt|clothes|uniform|shirt|pants|boots|shoes|gloves|highres|absurdres|monochrome|greyscale|long_hair|short_hair|black_hair|blonde_hair|brown_hair|blue_hair|white_hair|looking_at_viewer|open_mouth|smile|blush|simple_background|white_background|commentary|english_commentary)$/i;
+export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
 
 export class StorageUtils {
+  static isThematicTag(tag, dynamicKnownTags = null) {
+    if (!tag || typeof tag !== "string") return false;
+    const clean = tag.trim().toLowerCase();
+    if (clean.length < 3 || /^\d/.test(clean)) return false;
+    if (ATTR_REGEX.test(clean)) return false;
+    if (clean.includes("(") && clean.includes(")")) return true;
+    if (clean.includes(":")) return true;
+    if (clean.includes("/")) return true;
+    if (clean.endsWith("_(series)") || clean.endsWith("_(game)") || clean.endsWith("_(anime)")) return true;
+    if (dynamicKnownTags && dynamicKnownTags.has(clean)) return true;
+    return false;
+  }
+
   static getSavedPins() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -61,7 +74,6 @@ export class StorageUtils {
     try {
       localStorage.setItem(VIEWED_PINS_KEY, JSON.stringify(capped));
     } catch {}
-    this.clearIdeasCache();
   }
 
   static getRecentSearches() {
@@ -84,7 +96,6 @@ export class StorageUtils {
     try {
       localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(capped));
     } catch {}
-    this.clearIdeasCache();
   }
 
   static removeRecentSearch(query) {
@@ -95,36 +106,54 @@ export class StorageUtils {
     try {
       localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(list));
     } catch {}
-    this.clearIdeasCache();
   }
 
   static clearRecentSearches() {
     try {
       localStorage.removeItem(RECENT_SEARCHES_KEY);
     } catch {}
-    this.clearIdeasCache();
   }
 
   static clearIdeasCache() {
     try {
       localStorage.removeItem(IDEAS_CACHE_KEY);
+      localStorage.removeItem("lotus_ideas_cache_v19");
+      localStorage.removeItem("lotus_ideas_cache_v18");
+      localStorage.removeItem("lotus_ideas_cache_v17");
+      localStorage.removeItem("lotus_ideas_cache_v16");
+      localStorage.removeItem("lotus_ideas_cache_v15");
       localStorage.removeItem("lotus_ideas_for_you_cache");
     } catch {}
   }
 
-  static getUserTasteTags() {
+  static getUserTasteTags(dynamicKnownTags = null) {
     const saved = this.getSavedPins();
     const viewed = this.getViewedPins();
     const tagCounts = new Map();
 
     const processTags = (list, weight) => {
       list.forEach((pin) => {
+        if (pin.title) {
+          const titleTag = pin.title.trim().toLowerCase().replace(/\s+/g, "_");
+          if (titleTag && titleTag.length > 2 && this.isThematicTag(titleTag, dynamicKnownTags)) {
+            tagCounts.set(titleTag, (tagCounts.get(titleTag) || 0) + weight * 2);
+          }
+        }
         if (Array.isArray(pin.tags)) {
           pin.tags.forEach((t) => {
             const raw = typeof t === "string" ? t : t.query || t.label;
-            if (raw && raw.length > 2 && !NOISY_TAGS_REGEX.test(raw)) {
-              const normalized = raw.toLowerCase().replace(/_/g, " ").trim();
-              tagCounts.set(normalized, (tagCounts.get(normalized) || 0) + weight);
+            if (!raw) return;
+            const clean = raw.trim().toLowerCase();
+            if (this.isThematicTag(clean, dynamicKnownTags)) {
+              tagCounts.set(clean, (tagCounts.get(clean) || 0) + weight);
+
+              const m = clean.match(/^(.+)\(([^)]+)\)$/);
+              if (m) {
+                const franchise = m[2].trim();
+                if (franchise.length >= 3) {
+                  tagCounts.set(franchise, (tagCounts.get(franchise) || 0) + weight);
+                }
+              }
             }
           });
         }
@@ -136,16 +165,17 @@ export class StorageUtils {
 
     const searches = this.getRecentSearches();
     searches.forEach((s) => {
-      const clean = (s || "").toLowerCase().replace(/_/g, " ").trim();
-      if (clean && clean.length > 2 && !NOISY_TAGS_REGEX.test(clean)) {
+      const clean = (s || "").trim().toLowerCase();
+      if (clean && clean.length > 2 && this.isThematicTag(clean, dynamicKnownTags)) {
         tagCounts.set(clean, (tagCounts.get(clean) || 0) + 2);
       }
     });
 
     const sorted = [...tagCounts.entries()]
+      .filter(([_, score]) => score >= 4)
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
 
-    return sorted.slice(0, 8);
+    return sorted.slice(0, 24);
   }
 }
