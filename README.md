@@ -54,19 +54,3 @@ Lotus-Lab/
     ├── app.routes.js               # Route mapping
     └── app.config.js               # Application endpoints and configuration
 ```
-
----
-
-## Getting Started
-
-Because Lotus uses native ES Modules, serve the root directory with any standard static HTTP server:
-
-```bash
-# Using Python
-python -m http.server 3000
-
-# Using Node.js (npx)
-npx serve .
-```
-
-Open `http://localhost:3000` in your browser.
