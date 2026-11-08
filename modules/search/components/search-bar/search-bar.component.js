@@ -27,6 +27,7 @@ export class SearchBarComponent {
     this.inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        this.inputEl.blur();
         clearTimeout(this.debounceTimer);
         const value = this.inputEl.value.trim();
         if (typeof this.onSearch === "function") {
@@ -54,5 +55,9 @@ export class SearchBarComponent {
 
   getValue() {
     return this.inputEl.value.trim();
+  }
+
+  blur() {
+    this.inputEl.blur();
   }
 }
