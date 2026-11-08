@@ -96,7 +96,13 @@ export class TagFilterComponent {
     this.chips.forEach((c) => c.classList.remove("active"));
     if (selectedChip) {
       selectedChip.classList.add("active");
-      selectedChip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      const offsetLeft = selectedChip.offsetLeft;
+      const chipWidth = selectedChip.offsetWidth;
+      const containerWidth = this.containerEl.clientWidth;
+      this.containerEl.scrollTo({
+        left: offsetLeft - (containerWidth / 2) + (chipWidth / 2),
+        behavior: "smooth"
+      });
     }
   }
 

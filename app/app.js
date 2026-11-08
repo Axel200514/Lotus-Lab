@@ -95,6 +95,10 @@ class LotusApp {
     this.loadDynamicTags();
 
     this.navbar = new NavbarComponent((route) => {
+      if ((route === APP_ROUTES.home || route === "") && this.currentMode === "feed" && !window.location.hash) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
       this.router.navigate(route);
     });
 
@@ -311,6 +315,10 @@ class LotusApp {
   }
 
   showFeedView() {
+    if (this.currentMode === "feed" && this.pinList.renderedPins.length > 0) {
+      return;
+    }
+
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
@@ -320,10 +328,6 @@ class LotusApp {
 
     if (!this.hasLoadedTrendingTags) {
       this.loadDynamicTags();
-    }
-
-    if (this.currentMode === "feed" && this.pinList.renderedPins.length > 0) {
-      return;
     }
 
     this.currentMode = "feed";
@@ -415,6 +419,9 @@ class LotusApp {
   }
 
   async showExploreView() {
+    if (this.currentMode === "explore" && this.hasRenderedExplore) {
+      return;
+    }
     this.fetchSeq += 1;
     this.navbar.setActive(APP_ROUTES.explore);
     this.categoriesContainer.classList.add("d-none");
@@ -427,10 +434,14 @@ class LotusApp {
 
     this.loader.show();
     await this.exploreComponent.render();
+    this.hasRenderedExplore = true;
     this.loader.hide();
   }
 
   showSavedView() {
+    if (this.currentMode === "saved") {
+      return;
+    }
     this.fetchSeq += 1;
     this.navbar.setActive(APP_ROUTES.saved);
     this.categoriesContainer.classList.add("d-none");

@@ -9,6 +9,8 @@ export class ModalComponent {
     this.fetchRelatedPins = fetchRelatedPins;
     this.activePin = null;
     this.isOpen = false;
+    this.savedScrollY = 0;
+    this.previousHash = "";
     this.seenPinIds = new Set();
     this.renderedRelatedIds = new Set();
     this.relatedCache = new Map();
@@ -207,6 +209,11 @@ export class ModalComponent {
 
   open(pin, isSaved = false, pushToStack = true) {
     if (!pin) return;
+
+    if (!this.isOpen) {
+      this.savedScrollY = window.scrollY;
+      this.previousHash = window.location.hash;
+    }
 
     if (pushToStack) {
       this.pinStack.push(pin);
@@ -528,7 +535,16 @@ export class ModalComponent {
     this.resetModalScroll();
 
     if (window.location.hash.startsWith("#pin=")) {
-      history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      const prev = (this.previousHash && !this.previousHash.startsWith("#pin=")) ? this.previousHash : "";
+      const targetUrl = prev ? `${window.location.pathname}${window.location.search}${prev}` : (window.location.pathname + window.location.search);
+      history.replaceState(null, document.title, targetUrl);
+    }
+    if (typeof this.savedScrollY === "number") {
+      const scrollY = this.savedScrollY;
+      window.scrollTo({ top: scrollY, behavior: "instant" });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: scrollY, behavior: "instant" });
+      });
     }
   }
 
