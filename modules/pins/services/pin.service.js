@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=3.9";
-import { PinModel } from "../../shared/models/pin.model.js?v=3.9";
+import { API_CONFIG } from "../../../app/app.config.js?v=4.0";
+import { PinModel } from "../../shared/models/pin.model.js?v=4.0";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
@@ -8,7 +8,7 @@ let aliasesPromise = null;
 
 function loadAliases() {
   if (aliasesPromise) return aliasesPromise;
-  const url = new URL("../../../data/aliases.json", import.meta.url).href;
+  const url = new URL("../../../data/aliases.json?v=4.0", import.meta.url).href;
   aliasesPromise = fetch(url)
     .then((res) => (res.ok ? res.json() : {}))
     .then((data) => {

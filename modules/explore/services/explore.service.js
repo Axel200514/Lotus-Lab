@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=3.9";
-import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=3.9";
+import { API_CONFIG } from "../../../app/app.config.js?v=4.0";
+import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=4.0";
 
 const CACHE_KEY = "lotus_explore_cache_v22";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;

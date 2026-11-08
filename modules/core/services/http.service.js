@@ -1,4 +1,4 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=3.9";
+import { API_CONFIG } from "../../../app/app.config.js?v=4.0";
 
 export class HttpService {
   async request(url, options = {}) {

@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "./app.config.js?v=3.9";
+import { APP_ROUTES } from "./app.config.js?v=4.0";
 
 export class AppRouter {
   constructor(routes = {}) {
