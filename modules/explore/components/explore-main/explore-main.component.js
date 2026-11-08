@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=2.9";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=2.9";
+import { ExploreService } from "../../services/explore.service.js?v=3.0";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=3.0";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -45,7 +45,28 @@ export class ExploreMainComponent {
       if (boardsSection) fragment.appendChild(boardsSection);
     }
 
-    const validSections = popularSections.filter((s) => Array.isArray(s.thumbnails) && s.thumbnails.length >= 4);
+    const normalizeTopicKey = (str) =>
+      String(str || "")
+        .toLowerCase()
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;/g, "&")
+        .replace(/\([^)]*\)/g, "")
+        .replace(/[^a-z0-9]/g, "");
+
+    const existingBoardKeys = new Set(
+      (boards || []).flatMap((b) => [normalizeTopicKey(b.title), normalizeTopicKey(b.tag)]).filter(Boolean)
+    );
+
+    const seenPopularKeys = new Set();
+    const validSections = popularSections.filter((s) => {
+      if (!s || !Array.isArray(s.thumbnails) || s.thumbnails.length < 4) return false;
+      const normTitle = normalizeTopicKey(s.title);
+      const normTag = normalizeTopicKey(s.tag);
+      if (existingBoardKeys.has(normTitle) || existingBoardKeys.has(normTag)) return false;
+      if (seenPopularKeys.has(normTitle)) return false;
+      seenPopularKeys.add(normTitle);
+      return true;
+    });
     validSections.forEach((section) => {
       const sectionNode = this.buildPopularSection(section);
       fragment.appendChild(sectionNode);
