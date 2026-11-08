@@ -1,10 +1,10 @@
 import { API_CONFIG } from "../../../app/app.config.js";
-import { StorageUtils } from "../../shared/utils/storage.utils.js";
+import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js";
 
 const CACHE_KEY = "lotus_explore_cache_v15";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v15";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v20";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 14; i++) {
+      for (let i = 1; i <= 19; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
@@ -160,29 +160,67 @@ export class ExploreService {
   async buildIdeasForYouPayload() {
     const exploreData = await this.getExploreData();
     const savedPins = StorageUtils.getSavedPins();
-    const userTasteTags = StorageUtils.getUserTasteTags();
     const recentSearches = StorageUtils.getRecentSearches();
+
+    const tagOccurrences = new Map();
+    savedPins.forEach((p) => {
+      if (p.title) {
+        const titleTag = p.title.trim().toLowerCase().replace(/\s+/g, "_");
+        if (titleTag && titleTag.length > 2 && !ATTR_REGEX.test(titleTag) && !/^\d/.test(titleTag)) {
+          tagOccurrences.set(titleTag, (tagOccurrences.get(titleTag) || 0) + 2);
+        }
+      }
+      if (Array.isArray(p.tags)) {
+        p.tags.forEach((t) => {
+          const raw = typeof t === "string" ? t : t.query || t.label;
+          if (!raw) return;
+          const clean = raw.trim().toLowerCase();
+          if (clean.length > 2 && !/^\d/.test(clean) && !ATTR_REGEX.test(clean)) {
+            tagOccurrences.set(clean, (tagOccurrences.get(clean) || 0) + 1);
+          }
+        });
+      }
+    });
+
+    const recurringTags = [...tagOccurrences.entries()]
+      .filter(([_, count]) => count >= 2)
+      .map(([tag]) => tag);
+
+    const dynamicKnownTags = new Set([
+      ...(exploreData.boards || []).map((b) => (b.tag || "").toLowerCase()),
+      ...(exploreData.popularSections || []).map((s) => (s.tag || "").toLowerCase()),
+      ...recentSearches
+        .map((s) => (s || "").trim().toLowerCase().replace(/\s+/g, "_"))
+        .filter((s) => s.length > 2 && !ATTR_REGEX.test(s) && !/^\d/.test(s)),
+      ...savedPins
+        .map((p) => (p.title || "").trim().toLowerCase().replace(/\s+/g, "_"))
+        .filter((t) => t.length > 2 && !ATTR_REGEX.test(t) && !/^\d/.test(t)),
+      ...recurringTags
+    ]);
+    const userTasteTags = StorageUtils.getUserTasteTags(dynamicKnownTags);
 
     const selectedTopics = [];
     const usedQueries = new Set();
+    const usedPreviews = new Set();
 
-    const userCandidates = [...userTasteTags, ...recentSearches];
+    const userCandidates = userTasteTags;
     for (const term of userCandidates) {
       const clean = (term || "").trim();
       if (!clean) continue;
       const q = clean.replace(/\s+/g, "_").toLowerCase();
-      if (!usedQueries.has(q)) {
-        const preview = this.findPreviewForQuery(q, savedPins, exploreData);
-        if (preview) {
-          usedQueries.add(q);
-          selectedTopics.push({
-            title: this.formatTitle(clean),
-            tag: clean,
-            query: q,
-            previewUrl: preview
-          });
-          if (selectedTopics.length >= 5) break;
-        }
+      if (usedQueries.has(q)) continue;
+      if ([...usedQueries].some((existing) => existing.split("_").includes(q) || q.split("_").includes(existing))) continue;
+      const preview = this.findPreviewForQuery(q, savedPins, exploreData, usedPreviews);
+      if (preview && !usedPreviews.has(preview)) {
+        usedQueries.add(q);
+        usedPreviews.add(preview);
+        selectedTopics.push({
+          title: this.formatTitle(clean),
+          tag: clean,
+          query: q,
+          previewUrl: preview
+        });
+        if (selectedTopics.length >= 5) break;
       }
     }
 
@@ -190,10 +228,20 @@ export class ExploreService {
       for (const section of exploreData.popularSections) {
         if (!section || !section.tag) continue;
         const q = section.tag.trim().replace(/\s+/g, "_").toLowerCase();
-        const t = section.thumbnails && section.thumbnails[0];
-        const preview = typeof t === "string" ? t : (t ? t.url : "");
-        if (!usedQueries.has(q) && preview) {
+        if (usedQueries.has(q)) continue;
+        let preview = "";
+        if (Array.isArray(section.thumbnails)) {
+          for (const t of section.thumbnails) {
+            const url = typeof t === "string" ? t : (t ? t.url : "");
+            if (url && !usedPreviews.has(url)) {
+              preview = url;
+              break;
+            }
+          }
+        }
+        if (preview) {
           usedQueries.add(q);
+          usedPreviews.add(preview);
           selectedTopics.push({
             title: section.title || this.formatTitle(section.tag),
             tag: section.tag,
@@ -210,9 +258,15 @@ export class ExploreService {
       for (const board of remainingBoards) {
         if (!board || !board.tag) continue;
         const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
-        const preview = (board.previews && (board.previews[1] || board.previews[0])) || "";
-        if (!usedQueries.has(q) && preview) {
+        if (usedQueries.has(q)) continue;
+        let preview = "";
+        if (Array.isArray(board.previews)) {
+          const unused = board.previews.find((p) => p && !usedPreviews.has(p));
+          if (unused) preview = unused;
+        }
+        if (preview) {
           usedQueries.add(q);
+          usedPreviews.add(preview);
           selectedTopics.push({
             title: board.title || this.formatTitle(board.tag),
             tag: board.tag,
@@ -228,9 +282,15 @@ export class ExploreService {
       for (const board of exploreData.boards) {
         if (!board || !board.tag) continue;
         const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
-        const preview = (board.previews && (board.previews[0] || board.previews[1])) || "";
-        if (!usedQueries.has(q) && preview) {
+        if (usedQueries.has(q)) continue;
+        let preview = "";
+        if (Array.isArray(board.previews)) {
+          const unused = board.previews.find((p) => p && !usedPreviews.has(p));
+          if (unused) preview = unused;
+        }
+        if (preview) {
           usedQueries.add(q);
+          usedPreviews.add(preview);
           selectedTopics.push({
             title: board.title || this.formatTitle(board.tag),
             tag: board.tag,
@@ -246,7 +306,8 @@ export class ExploreService {
       for (const board of exploreData.boards) {
         if (!board || !Array.isArray(board.previews)) continue;
         for (const prev of board.previews) {
-          if (prev && !selectedTopics.some((t) => t.previewUrl === prev)) {
+          if (prev && !usedPreviews.has(prev)) {
+            usedPreviews.add(prev);
             selectedTopics.push({
               title: board.title || this.formatTitle(board.tag),
               tag: board.tag,
@@ -275,11 +336,12 @@ export class ExploreService {
     StorageUtils.clearIdeasCache();
   }
 
-  findPreviewForQuery(query, savedPins, exploreData) {
+  findPreviewForQuery(query, savedPins, exploreData, usedPreviews = new Set()) {
     const cleanQ = query.toLowerCase();
 
     const matchingSaved = savedPins.find((p) => {
-      if (!p || !Array.isArray(p.tags)) return false;
+      if (!p || !Array.isArray(p.tags) || !p.previewUrl) return false;
+      if (usedPreviews.has(p.previewUrl)) return false;
       return p.tags.some((t) => {
         const raw = typeof t === "string" ? t : t.query || t.label;
         return (raw || "").toLowerCase().includes(cleanQ);
@@ -291,7 +353,8 @@ export class ExploreService {
 
     const viewedPins = StorageUtils.getViewedPins();
     const matchingViewed = viewedPins.find((p) => {
-      if (!p || !Array.isArray(p.tags)) return false;
+      if (!p || !Array.isArray(p.tags) || !p.previewUrl) return false;
+      if (usedPreviews.has(p.previewUrl)) return false;
       return p.tags.some((t) => {
         const raw = typeof t === "string" ? t : t.query || t.label;
         return (raw || "").toLowerCase().includes(cleanQ);
@@ -305,8 +368,9 @@ export class ExploreService {
       const b = exploreData.boards.find(
         (item) => item.tag && item.tag.toLowerCase().includes(cleanQ)
       );
-      if (b && b.previews && b.previews[0]) {
-        return b.previews[0];
+      if (b && Array.isArray(b.previews)) {
+        const unused = b.previews.find((url) => url && !usedPreviews.has(url));
+        if (unused) return unused;
       }
     }
 
@@ -314,9 +378,11 @@ export class ExploreService {
       const s = exploreData.popularSections.find(
         (item) => item.tag && item.tag.toLowerCase().includes(cleanQ)
       );
-      if (s && s.thumbnails && s.thumbnails[0]) {
-        const t = s.thumbnails[0];
-        return typeof t === "string" ? t : t.url;
+      if (s && Array.isArray(s.thumbnails)) {
+        for (const t of s.thumbnails) {
+          const url = typeof t === "string" ? t : (t ? t.url : "");
+          if (url && !usedPreviews.has(url)) return url;
+        }
       }
     }
 
