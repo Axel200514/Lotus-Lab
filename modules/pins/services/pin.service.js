@@ -3,124 +3,26 @@ import { PinModel } from "../../shared/models/pin.model.js?v=3.9";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
-const BOORU_SPECIAL = {
-  goku: "son_goku",
-  luffy: "monkey_d._luffy",
-  naruto: "uzumaki_naruto",
-  sasuke: "uchiha_sasuke",
-  vegeta: "vegeta",
-  miku: "hatsune_miku",
-  hatsunemiku: "hatsune_miku",
-  tanjiro: "kamado_tanjirou",
-  kamadotanjiro: "kamado_tanjirou",
-  nezuko: "kamado_nezuko",
-  kamadonezuko: "kamado_nezuko",
-  gojo: "gojou_satoru",
-  gojosatoru: "gojou_satoru",
-  rem: "rem_(re:zero)",
-  asuka: "souryuu_asuka_langley",
-  shinji: "ikari_shinji",
-  deku: "midoriya_izuku",
-  bakugo: "bakugou_katsuki",
-  todoroki: "todoroki_shouto",
-  levi: "levi_(shingeki_no_kyojin)",
-  eren: "eren_yeager",
-  anya: "anya_forger",
-  anyaforger: "anya_forger",
-  yor: "yor_forger",
-  yorforger: "yor_forger",
-  loid: "loid_forger",
-  loidforger: "loid_forger",
-  spyxfamily: "spy_x_family",
-  spyfamily: "spy_x_family",
-  bluelock: "blue_lock",
-  chainsawman: "chainsaw_man",
-  onepiece: "one_piece",
-  demonslayer: "kimetsu_no_yaiba",
-  kimetsunoyaiba: "kimetsu_no_yaiba",
-  jujutsukaisen: "jujutsu_kaisen",
-  bocchi: "bocchi_the_rock!",
-  bocchitherock: "bocchi_the_rock!",
-  attackontitan: "shingeki_no_kyojin",
-  shingekinokyojin: "shingeki_no_kyojin",
-  snk: "shingeki_no_kyojin",
-  aot: "shingeki_no_kyojin",
-  myheroacademia: "boku_no_hero_academia",
-  bokunoheroacademia: "boku_no_hero_academia",
-  mha: "boku_no_hero_academia",
-  bnha: "boku_no_hero_academia",
-  hunterxhunter: "hunter_x_hunter",
-  hxh: "hunter_x_hunter",
-  honkaistarrail: "honkai:_star_rail",
-  starrail: "honkai:_star_rail",
-  hsr: "honkai:_star_rail",
-  zenlesszonezero: "zenless_zone_zero",
-  zenless: "zenless_zone_zero",
-  zzz: "zenless_zone_zero",
-  bluearchive: "blue_archive",
-  frieren: "sousou_no_frieren",
-  sousounofrieren: "sousou_no_frieren",
-  oshinoko: "oshi_no_ko",
-  sololeveling: "solo_leveling",
-  dragonball: "dragon_ball",
-  dbz: "dragon_ball",
-  bleach: "bleach",
-  blackclover: "black_clover",
-  tokyoghoul: "tokyo_ghoul",
-  deathnote: "death_note",
-  fireforce: "enen_no_shouboutai",
-  fullmetalalchemist: "fullmetal_alchemist",
-  fma: "fullmetal_alchemist",
-  swordartonline: "sword_art_online",
-  sao: "sword_art_online",
-  highschooldxd: "high_school_dxd",
-  dxd: "high_school_dxd",
-  fate: "fate/grand_order",
-  fgo: "fate/grand_order",
-  fategrandorder: "fate/grand_order",
-  fatestaynight: "fate/stay_night",
-  dungeonmeshi: "dungeon_meshi",
-  deliciousindungeon: "dungeon_meshi",
-  evangelion: "neon_genesis_evangelion",
-  madokamagica: "mahou_shoujo_madoka_magica",
-  cyberpunk: "cyberpunk",
-  cyberpunkedgerunners: "cyberpunk:_edgerunners",
-  edgerunners: "cyberpunk:_edgerunners",
-  nierautomata: "nier:_automata",
-  nier: "nier:_automata",
-  persona: "persona_5",
-  persona5: "persona_5",
-  eldenring: "elden_ring",
-  pixelart: "pixel_art",
-  glitchtale: "glitchtale",
-  undertale: "undertale",
-  deltarune: "deltarune",
-  touhou: "touhou",
-  vocaloid: "vocaloid",
-  hololive: "hololive",
-  arknights: "arknights",
-  umamusume: "umamusume",
-  projectmoon: "project_moon",
-  pokemon: "pokemon",
-  zelda: "the_legend_of_zelda",
-  genshin: "genshin_impact",
-  genshinimpact: "genshin_impact",
-  chica: "1girl",
-  chicas: "multiple_girls",
-  chico: "1boy",
-  chicos: "multiple_boys",
-  fondo: "wallpaper",
-  fondos: "wallpaper",
-  paisaje: "scenery",
-  paisajes: "scenery",
-  ilustracion: "waifu",
-  ilustraciones: "waifu",
-  personaje: "solo",
-  personajes: "solo",
-  zorro: "fox_ears",
-  zorros: "fox_ears",
-  kitsune: "fox_ears"
-};
+let aliasesData = {};
+let aliasesPromise = null;
+
+function loadAliases() {
+  if (aliasesPromise) return aliasesPromise;
+  const url = new URL("../../../data/aliases.json", import.meta.url).href;
+  aliasesPromise = fetch(url)
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((data) => {
+      aliasesData = data || {};
+      return aliasesData;
+    })
+    .catch(() => {
+      aliasesData = {};
+      return aliasesData;
+    });
+  return aliasesPromise;
+}
+
+loadAliases();
 
 const COMPOUND_PREFIXES = [
   "blue", "black", "white", "red", "dark", "death", "dragon", "star", "fire",
@@ -174,12 +76,12 @@ export class PinService {
     const alphaNum = clean.replace(/[^a-z0-9]/g, "");
     const xAlphaNum = xFixed.replace(/[^a-z0-9]/g, "");
 
-    if (BOORU_SPECIAL[alphaNum]) return BOORU_SPECIAL[alphaNum];
-    if (BOORU_SPECIAL[xAlphaNum]) return BOORU_SPECIAL[xAlphaNum];
-    if (BOORU_SPECIAL[clean]) return BOORU_SPECIAL[clean];
+    if (aliasesData[alphaNum]) return aliasesData[alphaNum];
+    if (aliasesData[xAlphaNum]) return aliasesData[xAlphaNum];
+    if (aliasesData[clean]) return aliasesData[clean];
 
     const cleanUnderscored = clean.replace(/[\s-]+/g, "_");
-    if (BOORU_SPECIAL[cleanUnderscored]) return BOORU_SPECIAL[cleanUnderscored];
+    if (aliasesData[cleanUnderscored]) return aliasesData[cleanUnderscored];
 
     if (xFixed !== clean) {
       return xFixed.replace(/[\s-]+/g, "_");
@@ -188,7 +90,7 @@ export class PinService {
     for (const prefix of COMPOUND_PREFIXES) {
       if (alphaNum.startsWith(prefix) && alphaNum.length > prefix.length + 2) {
         const candidate = `${prefix}_${alphaNum.slice(prefix.length)}`;
-        if (BOORU_SPECIAL[candidate]) return BOORU_SPECIAL[candidate];
+        if (aliasesData[candidate]) return aliasesData[candidate];
         return candidate;
       }
     }
@@ -208,13 +110,15 @@ export class PinService {
     const clean = (query || "").trim().toLowerCase();
     if (!clean) return "";
 
+    await loadAliases();
+
     if (this.translationCache.has(clean)) {
       return this.translationCache.get(clean);
     }
 
-    if (BOORU_SPECIAL[clean]) {
-      this.translationCache.set(clean, BOORU_SPECIAL[clean]);
-      return BOORU_SPECIAL[clean];
+    if (aliasesData[clean]) {
+      this.translationCache.set(clean, aliasesData[clean]);
+      return aliasesData[clean];
     }
 
     try {
@@ -229,7 +133,7 @@ export class PinService {
         const data = JSON.parse(text);
         if (data && data[0]) {
           const raw = data[0].map((s) => s[0]).join("").replace(/[.,/#!$%^&*;:{}=\`~()]/g, "").trim().toLowerCase();
-          const resolved = BOORU_SPECIAL[raw] || raw;
+          const resolved = aliasesData[raw] || raw;
           if (resolved) {
             this.translationCache.set(clean, resolved);
             return resolved;
@@ -617,6 +521,8 @@ export class PinService {
       const data = await this.executeSafebooruFetch("", page, limit);
       return data.map((item) => PinModel.fromSafebooru(item));
     }
+
+    await loadAliases();
 
     if (this.tagResolutionCache.has(raw)) {
       const resolvedTag = this.tagResolutionCache.get(raw);
