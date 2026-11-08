@@ -9,7 +9,7 @@ export const API_CONFIG = {
   safebooruProxyEndpoint: `${BASE_URL}/api/safebooru`,
   downloadProxyEndpoint: `${BASE_URL}/api/download`,
   trendingEndpoint: `${BASE_URL}/api/trending`,
-  timeoutMs: 5000,
+  timeoutMs: 9500,
   defaultLimit: 24
 };
 

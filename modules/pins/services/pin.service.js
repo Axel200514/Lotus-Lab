@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=3.4";
-import { PinModel } from "../../shared/models/pin.model.js?v=3.4";
+import { API_CONFIG } from "../../../app/app.config.js?v=3.7";
+import { PinModel } from "../../shared/models/pin.model.js?v=3.7";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
@@ -36,29 +36,11 @@ const BOORU_SPECIAL = {
   zorro: "fox_ears",
   zorros: "fox_ears",
   kitsune: "fox_ears",
-  genshin: "genshin_impact",
-  madoka: "mahou_shoujo_madoka_magica",
-  madoka_magica: "mahou_shoujo_madoka_magica",
-  evangelion: "neon_genesis_evangelion",
-  frieren: "sousou_no_frieren",
-  bocchi: "bocchi_the_rock!",
-  bocchi_the_rock: "bocchi_the_rock!",
-  chainsaw_man: "chainsaw_man",
-  jujutsu: "jujutsu_kaisen",
-  jujutsu_kaisen: "jujutsu_kaisen",
-  kimetsu: "kimetsu_no_yaiba",
-  demon_slayer: "kimetsu_no_yaiba",
-  attack_on_titan: "shingeki_no_kyojin",
-  shingeki: "shingeki_no_kyojin",
-  my_hero_academia: "boku_no_hero_academia",
-  boku_no_hero: "boku_no_hero_academia",
-  fate: "fate/grand_order",
-  nier: "nier:_automata",
-  nier_automata: "nier:_automata",
-  star_rail: "honkai:_star_rail",
-  honkai_star_rail: "honkai:_star_rail",
-  zzz: "zenless_zone_zero"
+  genshin: "genshin_impact"
 };
+
+const STOP_WORDS = new Set(["the", "no", "la", "de", "of", "and", "in", "to", "a", "on", "at", "by", "or", "is", "it", "wa"]);
+const SPANISH_WORDS = new Set(["fondo", "pantalla", "chica", "chico", "paisaje", "cielo", "ojos", "pelo", "cabello", "armadura", "vestido", "espada", "del", "las", "los", "una", "con", "por", "para"]);
 
 export class PinService {
   constructor() {
@@ -182,6 +164,158 @@ export class PinService {
     return Array.from(candidates);
   }
 
+  isSpanish(text) {
+    if (/[áéíóúüñ]/i.test(text)) return true;
+    const words = (text || "").toLowerCase().split(/\s+/);
+    return words.some((w) => SPANISH_WORDS.has(w));
+  }
+
+  async translateToRomaji(text) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&dt=rm&q=${encodeURIComponent(text)}`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        const romaji = data[0]?.find((item) => item && item[2])?.[2] || "";
+        return romaji.toLowerCase().replace(/[^\w\s]/g, " ").trim();
+      }
+    } catch {}
+    return "";
+  }
+
+  extractSignificantTokens(query) {
+    return (query || "")
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
+  }
+
+  buildSearchCandidates(raw) {
+    const clean = (raw || "").trim().toLowerCase();
+    const words = clean.split(/[\s_-]+/).filter(Boolean);
+    const candidates = new Set();
+
+    candidates.add(clean.replace(/\s+/g, "_"));
+    candidates.add(clean);
+
+    if (words.length >= 2) {
+      candidates.add(words.join("_"));
+      if (words.length === 2) {
+        candidates.add(`${words[1]}_${words[0]}`);
+      }
+      candidates.add(`${words[0]}:${words.slice(1).join("_")}`);
+      candidates.add(`${words[0]}:_${words.slice(1).join("_")}`);
+      candidates.add(`${words[0]}/${words.slice(1).join("_")}`);
+      candidates.add(words.join(";"));
+      candidates.add(words.join("-"));
+      candidates.add(`${words.join("_")}!`);
+      candidates.add(`${words.join("_")}!!`);
+    } else if (words.length === 1) {
+      candidates.add(`${words[0]}!`);
+      candidates.add(`${words[0]}!!`);
+    }
+
+    return Array.from(candidates);
+  }
+
+  extractParenFranchise(items) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    for (const item of items) {
+      const rawTags = typeof item.tags === "string" ? item.tags.split(/\s+/) : Array.isArray(item.tags) ? item.tags : [];
+      for (const tag of rawTags) {
+        const match = tag.match(/\(([^)]+)\)$/);
+        if (match && match[1] && !match[1].match(/cosplay|style|medium|mtf/i)) {
+          return match[1];
+        }
+      }
+    }
+    return null;
+  }
+
+  async resolveFranchiseFromCharacterPost(items) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const candidateTags = [];
+    for (const post of items) {
+      const rawTags = typeof post.tags === "string" ? post.tags.split(/\s+/) : Array.isArray(post.tags) ? post.tags : [];
+      for (const tag of rawTags) {
+        if (tag.includes("_") && !tag.match(/hair|eyes|skin|clothes|shirt|dress|skirt|solo|highres|looking|smile/)) {
+          candidateTags.push(tag);
+        }
+      }
+    }
+    for (const c of candidateTags.slice(0, 4)) {
+      const data = await this.executeSafebooruFetch(c, 1, 3);
+      for (const p of data) {
+        const pTags = typeof p.tags === "string" ? p.tags.split(/\s+/) : Array.isArray(p.tags) ? p.tags : [];
+        for (const t of pTags) {
+          if (t.endsWith("_(series)") || t.endsWith("_(anime)") || t.endsWith("_(game)") || t.endsWith("_(manga)") || t.endsWith("_(novel)")) {
+            return t;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  findBestAlternativeTag(items, tokens, currentTag) {
+    if (!Array.isArray(items) || items.length === 0 || !tokens || tokens.length === 0) return null;
+    const tagScores = new Map();
+    const cleanCurrent = (currentTag || "").trim().toLowerCase();
+
+    for (const item of items) {
+      const rawTags = typeof item.tags === "string" ? item.tags.split(/\s+/) : Array.isArray(item.tags) ? item.tags : [];
+      for (const tag of rawTags) {
+        const cleanTag = (tag || "").trim().toLowerCase();
+        if (!cleanTag || cleanTag.length < 3 || cleanTag === cleanCurrent) continue;
+        let matches = 0;
+        for (const token of tokens) {
+          if (cleanTag.includes(token)) {
+            matches++;
+          }
+        }
+        if (matches > 0) {
+          let score = matches * 10;
+          if (matches === tokens.length) score += 50;
+          if (cleanTag.endsWith("_(series)") || cleanTag.endsWith("_(anime)") || cleanTag.endsWith("_(game)")) score += 25;
+          tagScores.set(cleanTag, (tagScores.get(cleanTag) || 0) + score);
+        }
+      }
+    }
+
+    if (tagScores.size === 0) return null;
+    const sorted = Array.from(tagScores.entries()).sort((a, b) => b[1] - a[1]);
+    return sorted[0] ? sorted[0][0] : null;
+  }
+
+  async executeSafebooruFetch(tag, page = 1, limit = API_CONFIG.defaultLimit, retryCount = 1) {
+    const cleanTag = (tag || "").trim();
+    const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(cleanTag)}&page=${page}&limit=${limit}`;
+    for (let attempt = 0; attempt <= retryCount; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9500);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const text = await res.text();
+          const safeText = (text || "").trim();
+          if (safeText.startsWith("[")) {
+            const data = JSON.parse(safeText);
+            if (Array.isArray(data)) {
+              return data;
+            }
+          }
+        }
+      } catch {}
+    }
+    return [];
+  }
+
   async getPins(query = "", page = 1, limit = API_CONFIG.defaultLimit) {
     const cleanQuery = query.trim().toLowerCase();
     const cacheKey = `${cleanQuery}_${page}_${limit}`;
@@ -273,6 +407,17 @@ export class PinService {
       }
     }
 
+    if (combined.length === 0) {
+      const emergency = await this.fetchSafebooru("", 1, limit);
+      for (const item of emergency) {
+        if (!this.sessionSeenIds.has(item.id) && !seen.has(item.id)) {
+          seen.add(item.id);
+          this.sessionSeenIds.add(item.id);
+          combined.push(item);
+        }
+      }
+    }
+
     return {
       pins: this.shuffle(combined),
       hasNextPage: true,
@@ -316,117 +461,116 @@ export class PinService {
   }
 
   async fetchSafebooru(query, page, limit) {
-    const raw = (query || "").trim().toLowerCase();
+    let raw = (query || "").trim().toLowerCase();
     if (!raw) {
-      const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=&page=${page}&limit=${limit}`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const text = await res.text();
-          const safeText = (text || "").trim();
-          if (safeText.startsWith("[")) {
-            const data = JSON.parse(safeText);
-            if (Array.isArray(data) && data.length > 0) {
-              return data.map((item) => PinModel.fromSafebooru(item));
-            }
-          }
-        }
-      } catch {}
-      return [];
+      const data = await this.executeSafebooruFetch("", page, limit);
+      return data.map((item) => PinModel.fromSafebooru(item));
     }
 
     if (this.tagResolutionCache.has(raw)) {
       const resolvedTag = this.tagResolutionCache.get(raw);
-      const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(resolvedTag)}&page=${page}&limit=${limit}`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          const text = await res.text();
-          const safeText = (text || "").trim();
-          if (!safeText.startsWith("[")) {
-            this.tagResolutionCache.delete(raw);
-          } else {
-            const data = JSON.parse(safeText);
-            if (Array.isArray(data) && data.length > 0) {
-              return data.map((item) => PinModel.fromSafebooru(item));
-            }
-            this.tagResolutionCache.delete(raw);
-          }
-        }
-      } catch {}
+      const data = await this.executeSafebooruFetch(resolvedTag, page, limit);
+      if (data.length > 0) {
+        return data.map((item) => PinModel.fromSafebooru(item));
+      }
+      this.tagResolutionCache.delete(raw);
     }
 
-    const normalized = this.normalizeQuery(raw);
-    const directCandidates = [];
-    if (normalized && normalized !== raw) {
-      directCandidates.push(normalized);
+    if (this.isSpanish(raw)) {
+      const trans = await this.translateQuery(raw);
+      if (trans && trans !== raw) {
+        if (trans === "anime girl") raw = "1girl";
+        else if (trans === "wallpaper") raw = "wallpaper";
+        else raw = trans;
+      }
     }
-    if (raw.includes(" ")) {
-      directCandidates.push(raw.replace(/\s+/g, "_"));
-    }
-    directCandidates.push(raw);
-    if (raw.includes("_")) {
-      directCandidates.push(raw.replace(/_/g, " "));
-    }
+
+    const tokens = this.extractSignificantTokens(raw);
+    const directCandidates = this.buildSearchCandidates(raw);
 
     let fallbackBatch = null;
 
     for (const directTag of directCandidates) {
-      const directUrl = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(directTag)}&page=${page}&limit=${limit}`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5500);
-        const res = await fetch(directUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
+      const data = await this.executeSafebooruFetch(directTag, page, limit);
+      if (data.length >= 16) {
+        this.tagResolutionCache.set(raw, directTag);
+        return data.map((item) => PinModel.fromSafebooru(item));
+      }
+      if (data.length > 0) {
+        if (!fallbackBatch) {
+          fallbackBatch = { tag: directTag, data };
+        }
+        const altTag = this.findBestAlternativeTag(data, tokens, directTag);
+        if (altTag) {
+          const altData = await this.executeSafebooruFetch(altTag, page, limit);
+          if (altData.length >= data.length) {
+            this.tagResolutionCache.set(raw, altTag);
+            return altData.map((item) => PinModel.fromSafebooru(item));
+          }
+        }
+        const parenFranchise = this.extractParenFranchise(data);
+        if (parenFranchise) {
+          const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
+          if (pData.length >= data.length) {
+            this.tagResolutionCache.set(raw, parenFranchise);
+            return pData.map((item) => PinModel.fromSafebooru(item));
+          }
+        }
+        const deepFranchise = await this.resolveFranchiseFromCharacterPost(data);
+        if (deepFranchise) {
+          const dData = await this.executeSafebooruFetch(deepFranchise, page, limit);
+          if (dData.length > 0) {
+            this.tagResolutionCache.set(raw, deepFranchise);
+            return dData.map((item) => PinModel.fromSafebooru(item));
+          }
+        }
+      }
+    }
 
-        if (res.ok) {
-          const text = await res.text();
-          const safeText = (text || "").trim();
-          if (safeText.startsWith("[")) {
-            const data = JSON.parse(safeText);
-            if (Array.isArray(data) && data.length > 0) {
-              if (data.length >= 4 || directTag === normalized) {
-                this.tagResolutionCache.set(raw, directTag);
-                return data.map((item) => PinModel.fromSafebooru(item));
-              }
-              if (!fallbackBatch) {
-                fallbackBatch = { tag: directTag, data };
-              }
+    if (tokens.length > 0) {
+      for (const token of tokens) {
+        const wildTag = `${token}*`;
+        const wildData = await this.executeSafebooruFetch(wildTag, 1, 10);
+        if (wildData.length > 0) {
+          const altTag = this.findBestAlternativeTag(wildData, tokens, directCandidates[0]);
+          if (altTag) {
+            const altData = await this.executeSafebooruFetch(altTag, page, limit);
+            if (altData.length > 0) {
+              this.tagResolutionCache.set(raw, altTag);
+              return altData.map((item) => PinModel.fromSafebooru(item));
+            }
+          }
+          const parenFranchise = this.extractParenFranchise(wildData);
+          if (parenFranchise) {
+            const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
+            if (pData.length > 0) {
+              this.tagResolutionCache.set(raw, parenFranchise);
+              return pData.map((item) => PinModel.fromSafebooru(item));
             }
           }
         }
-      } catch {}
+      }
+    }
+
+    const romaji = await this.translateToRomaji(raw);
+    if (romaji) {
+      const romajiTag = romaji.replace(/\s+/g, "_");
+      const rData = await this.executeSafebooruFetch(romajiTag, page, limit);
+      if (rData.length > 0) {
+        this.tagResolutionCache.set(raw, romajiTag);
+        return rData.map((item) => PinModel.fromSafebooru(item));
+      }
     }
 
     const translated = await this.translateQuery(raw);
     const candidates = this.buildTagCandidates(translated);
 
     for (const tag of candidates) {
-      const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&page=${page}&limit=${limit}`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) continue;
-        const text = await res.text();
-        const safeText = (text || "").trim();
-        if (!safeText.startsWith("[")) continue;
-        const data = JSON.parse(safeText);
-        if (Array.isArray(data) && data.length > 0) {
-          this.tagResolutionCache.set(raw, tag);
-          return data.map((item) => PinModel.fromSafebooru(item));
-        }
-      } catch {}
+      const data = await this.executeSafebooruFetch(tag, page, limit);
+      if (data.length > 0) {
+        this.tagResolutionCache.set(raw, tag);
+        return data.map((item) => PinModel.fromSafebooru(item));
+      }
     }
 
     if (fallbackBatch && Array.isArray(fallbackBatch.data) && fallbackBatch.data.length > 0) {
