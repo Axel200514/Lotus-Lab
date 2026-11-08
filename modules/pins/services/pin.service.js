@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=3.7";
-import { PinModel } from "../../shared/models/pin.model.js?v=3.7";
+import { API_CONFIG } from "../../../app/app.config.js?v=3.9";
+import { PinModel } from "../../shared/models/pin.model.js?v=3.9";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
@@ -10,9 +10,13 @@ const BOORU_SPECIAL = {
   sasuke: "uchiha_sasuke",
   vegeta: "vegeta",
   miku: "hatsune_miku",
+  hatsunemiku: "hatsune_miku",
   tanjiro: "kamado_tanjirou",
+  kamadotanjiro: "kamado_tanjirou",
   nezuko: "kamado_nezuko",
+  kamadonezuko: "kamado_nezuko",
   gojo: "gojou_satoru",
+  gojosatoru: "gojou_satoru",
   rem: "rem_(re:zero)",
   asuka: "souryuu_asuka_langley",
   shinji: "ikari_shinji",
@@ -21,6 +25,86 @@ const BOORU_SPECIAL = {
   todoroki: "todoroki_shouto",
   levi: "levi_(shingeki_no_kyojin)",
   eren: "eren_yeager",
+  anya: "anya_forger",
+  anyaforger: "anya_forger",
+  yor: "yor_forger",
+  yorforger: "yor_forger",
+  loid: "loid_forger",
+  loidforger: "loid_forger",
+  spyxfamily: "spy_x_family",
+  spyfamily: "spy_x_family",
+  bluelock: "blue_lock",
+  chainsawman: "chainsaw_man",
+  onepiece: "one_piece",
+  demonslayer: "kimetsu_no_yaiba",
+  kimetsunoyaiba: "kimetsu_no_yaiba",
+  jujutsukaisen: "jujutsu_kaisen",
+  bocchi: "bocchi_the_rock!",
+  bocchitherock: "bocchi_the_rock!",
+  attackontitan: "shingeki_no_kyojin",
+  shingekinokyojin: "shingeki_no_kyojin",
+  snk: "shingeki_no_kyojin",
+  aot: "shingeki_no_kyojin",
+  myheroacademia: "boku_no_hero_academia",
+  bokunoheroacademia: "boku_no_hero_academia",
+  mha: "boku_no_hero_academia",
+  bnha: "boku_no_hero_academia",
+  hunterxhunter: "hunter_x_hunter",
+  hxh: "hunter_x_hunter",
+  honkaistarrail: "honkai:_star_rail",
+  starrail: "honkai:_star_rail",
+  hsr: "honkai:_star_rail",
+  zenlesszonezero: "zenless_zone_zero",
+  zenless: "zenless_zone_zero",
+  zzz: "zenless_zone_zero",
+  bluearchive: "blue_archive",
+  frieren: "sousou_no_frieren",
+  sousounofrieren: "sousou_no_frieren",
+  oshinoko: "oshi_no_ko",
+  sololeveling: "solo_leveling",
+  dragonball: "dragon_ball",
+  dbz: "dragon_ball",
+  bleach: "bleach",
+  blackclover: "black_clover",
+  tokyoghoul: "tokyo_ghoul",
+  deathnote: "death_note",
+  fireforce: "enen_no_shouboutai",
+  fullmetalalchemist: "fullmetal_alchemist",
+  fma: "fullmetal_alchemist",
+  swordartonline: "sword_art_online",
+  sao: "sword_art_online",
+  highschooldxd: "high_school_dxd",
+  dxd: "high_school_dxd",
+  fate: "fate/grand_order",
+  fgo: "fate/grand_order",
+  fategrandorder: "fate/grand_order",
+  fatestaynight: "fate/stay_night",
+  dungeonmeshi: "dungeon_meshi",
+  deliciousindungeon: "dungeon_meshi",
+  evangelion: "neon_genesis_evangelion",
+  madokamagica: "mahou_shoujo_madoka_magica",
+  cyberpunk: "cyberpunk",
+  cyberpunkedgerunners: "cyberpunk:_edgerunners",
+  edgerunners: "cyberpunk:_edgerunners",
+  nierautomata: "nier:_automata",
+  nier: "nier:_automata",
+  persona: "persona_5",
+  persona5: "persona_5",
+  eldenring: "elden_ring",
+  pixelart: "pixel_art",
+  glitchtale: "glitchtale",
+  undertale: "undertale",
+  deltarune: "deltarune",
+  touhou: "touhou",
+  vocaloid: "vocaloid",
+  hololive: "hololive",
+  arknights: "arknights",
+  umamusume: "umamusume",
+  projectmoon: "project_moon",
+  pokemon: "pokemon",
+  zelda: "the_legend_of_zelda",
+  genshin: "genshin_impact",
+  genshinimpact: "genshin_impact",
   chica: "1girl",
   chicas: "multiple_girls",
   chico: "1boy",
@@ -35,9 +119,22 @@ const BOORU_SPECIAL = {
   personajes: "solo",
   zorro: "fox_ears",
   zorros: "fox_ears",
-  kitsune: "fox_ears",
-  genshin: "genshin_impact"
+  kitsune: "fox_ears"
 };
+
+const COMPOUND_PREFIXES = [
+  "blue", "black", "white", "red", "dark", "death", "dragon", "star", "fire",
+  "sword", "soul", "magic", "cyber", "pixel", "retro", "super", "demon",
+  "hunter", "hero", "space", "moon", "sun", "iron", "blood", "shadow",
+  "ghost", "grand", "night", "fate", "love", "solo", "deadly", "chainsaw",
+  "one", "full", "seven", "tokyo", "shin", "neo", "spy", "jujutsu", "bocchi"
+];
+
+const GENERIC_DISCARD_TAGS = new Set([
+  "family", "girl", "girls", "boy", "boys", "man", "woman", "child", "children",
+  "dog", "cat", "animal", "food", "room", "sky", "water", "tree", "flower",
+  "house", "city", "street", "car", "school", "bed", "table", "chair", "door"
+]);
 
 const STOP_WORDS = new Set(["the", "no", "la", "de", "of", "and", "in", "to", "a", "on", "at", "by", "or", "is", "it", "wa"]);
 const SPANISH_WORDS = new Set(["fondo", "pantalla", "chica", "chico", "paisaje", "cielo", "ojos", "pelo", "cabello", "armadura", "vestido", "espada", "del", "las", "los", "una", "con", "por", "para"]);
@@ -71,9 +168,32 @@ export class PinService {
 
   normalizeQuery(q) {
     const clean = (q || "").trim().toLowerCase();
+    if (!clean) return "";
+
+    const xFixed = clean.replace(/([a-z0-9]+)\s*x\s*([a-z0-9]+)/gi, (m, g1, g2) => `${g1}_x_${g2}`);
+    const alphaNum = clean.replace(/[^a-z0-9]/g, "");
+    const xAlphaNum = xFixed.replace(/[^a-z0-9]/g, "");
+
+    if (BOORU_SPECIAL[alphaNum]) return BOORU_SPECIAL[alphaNum];
+    if (BOORU_SPECIAL[xAlphaNum]) return BOORU_SPECIAL[xAlphaNum];
+    if (BOORU_SPECIAL[clean]) return BOORU_SPECIAL[clean];
+
     const cleanUnderscored = clean.replace(/[\s-]+/g, "_");
-    const cleanSpaced = clean.replace(/[_-]+/g, " ");
-    return BOORU_SPECIAL[clean] || BOORU_SPECIAL[cleanUnderscored] || BOORU_SPECIAL[cleanSpaced] || clean;
+    if (BOORU_SPECIAL[cleanUnderscored]) return BOORU_SPECIAL[cleanUnderscored];
+
+    if (xFixed !== clean) {
+      return xFixed.replace(/[\s-]+/g, "_");
+    }
+
+    for (const prefix of COMPOUND_PREFIXES) {
+      if (alphaNum.startsWith(prefix) && alphaNum.length > prefix.length + 2) {
+        const candidate = `${prefix}_${alphaNum.slice(prefix.length)}`;
+        if (BOORU_SPECIAL[candidate]) return BOORU_SPECIAL[candidate];
+        return candidate;
+      }
+    }
+
+    return cleanUnderscored;
   }
 
   toSingular(word) {
@@ -196,14 +316,26 @@ export class PinService {
 
   buildSearchCandidates(raw) {
     const clean = (raw || "").trim().toLowerCase();
-    const words = clean.split(/[\s_-]+/).filter(Boolean);
     const candidates = new Set();
 
-    candidates.add(clean.replace(/\s+/g, "_"));
+    const normalized = this.normalizeQuery(clean);
+    if (normalized) {
+      candidates.add(normalized);
+      candidates.add(normalized.replace(/[\s-]+/g, "_"));
+    }
+
+    const xFixed = clean.replace(/([a-z0-9]+)\s*x\s*([a-z0-9]+)/gi, (m, g1, g2) => `${g1}_x_${g2}`);
+    if (xFixed !== clean) {
+      candidates.add(xFixed);
+      candidates.add(xFixed.replace(/[\s-]+/g, "_"));
+    }
+
+    const words = clean.split(/[\s_-]+/).filter(Boolean);
+    const underscored = words.join("_");
+    candidates.add(underscored);
     candidates.add(clean);
 
     if (words.length >= 2) {
-      candidates.add(words.join("_"));
       if (words.length === 2) {
         candidates.add(`${words[1]}_${words[0]}`);
       }
@@ -213,10 +345,15 @@ export class PinService {
       candidates.add(words.join(";"));
       candidates.add(words.join("-"));
       candidates.add(`${words.join("_")}!`);
-      candidates.add(`${words.join("_")}!!`);
     } else if (words.length === 1) {
       candidates.add(`${words[0]}!`);
-      candidates.add(`${words[0]}!!`);
+    }
+
+    const alphaNum = clean.replace(/[^a-z0-9]/g, "");
+    for (const prefix of COMPOUND_PREFIXES) {
+      if (alphaNum.startsWith(prefix) && alphaNum.length > prefix.length + 2) {
+        candidates.add(`${prefix}_${alphaNum.slice(prefix.length)}`);
+      }
     }
 
     return Array.from(candidates);
@@ -271,16 +408,22 @@ export class PinService {
       for (const tag of rawTags) {
         const cleanTag = (tag || "").trim().toLowerCase();
         if (!cleanTag || cleanTag.length < 3 || cleanTag === cleanCurrent) continue;
+        if (tokens.length >= 2 && GENERIC_DISCARD_TAGS.has(cleanTag)) continue;
+
         let matches = 0;
         for (const token of tokens) {
           if (cleanTag.includes(token)) {
             matches++;
           }
         }
+
+        const isFranchise = cleanTag.endsWith("_(series)") || cleanTag.endsWith("_(anime)") || cleanTag.endsWith("_(game)") || cleanTag.endsWith("_(manga)");
+        if (tokens.length >= 2 && matches < 2 && !isFranchise) continue;
+
         if (matches > 0) {
           let score = matches * 10;
           if (matches === tokens.length) score += 50;
-          if (cleanTag.endsWith("_(series)") || cleanTag.endsWith("_(anime)") || cleanTag.endsWith("_(game)")) score += 25;
+          if (isFranchise) score += 35;
           tagScores.set(cleanTag, (tagScores.get(cleanTag) || 0) + score);
         }
       }
@@ -291,15 +434,23 @@ export class PinService {
     return sorted[0] ? sorted[0][0] : null;
   }
 
-  async executeSafebooruFetch(tag, page = 1, limit = API_CONFIG.defaultLimit, retryCount = 1) {
+  async executeSafebooruFetch(tag, page = 1, limit = API_CONFIG.defaultLimit, retryCount = 1, signal = null) {
     const cleanTag = (tag || "").trim();
     const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(cleanTag)}&page=${page}&limit=${limit}`;
     for (let attempt = 0; attempt <= retryCount; attempt++) {
+      if (signal && signal.aborted) return [];
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 9500);
+        const onAbort = () => controller.abort();
+        if (signal) {
+          signal.addEventListener("abort", onAbort, { once: true });
+        }
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
+        if (signal) {
+          signal.removeEventListener("abort", onAbort);
+        }
 
         if (res.ok) {
           const text = await res.text();
@@ -476,6 +627,24 @@ export class PinService {
       this.tagResolutionCache.delete(raw);
     }
 
+    const normalized = this.normalizeQuery(raw);
+    if (normalized && normalized !== raw) {
+      if (this.tagResolutionCache.has(normalized)) {
+        const cachedTag = this.tagResolutionCache.get(normalized);
+        const data = await this.executeSafebooruFetch(cachedTag, page, limit);
+        if (data.length > 0) {
+          this.tagResolutionCache.set(raw, cachedTag);
+          return data.map((item) => PinModel.fromSafebooru(item));
+        }
+      }
+
+      const normData = await this.executeSafebooruFetch(normalized, page, limit);
+      if (normData.length > 0) {
+        this.tagResolutionCache.set(raw, normalized);
+        return normData.map((item) => PinModel.fromSafebooru(item));
+      }
+    }
+
     if (this.isSpanish(raw)) {
       const trans = await this.translateQuery(raw);
       if (trans && trans !== raw) {
@@ -490,38 +659,102 @@ export class PinService {
 
     let fallbackBatch = null;
 
-    for (const directTag of directCandidates) {
-      const data = await this.executeSafebooruFetch(directTag, page, limit);
-      if (data.length >= 16) {
-        this.tagResolutionCache.set(raw, directTag);
-        return data.map((item) => PinModel.fromSafebooru(item));
-      }
-      if (data.length > 0) {
-        if (!fallbackBatch) {
-          fallbackBatch = { tag: directTag, data };
+    const uniqueCandidates = Array.from(new Set(directCandidates.filter(Boolean)));
+    if (uniqueCandidates.length > 0) {
+      const primaryBatch = uniqueCandidates.slice(0, 3);
+      const batchResults = await Promise.allSettled(
+        primaryBatch.map((candidateTag) => this.executeSafebooruFetch(candidateTag, page, limit, 0))
+      );
+
+      const seenIds = new Set();
+      const mergedItems = [];
+      let bestTag = primaryBatch[0];
+      let bestCount = 0;
+
+      batchResults.forEach((res, idx) => {
+        if (res.status === "fulfilled" && Array.isArray(res.value)) {
+          const candidateTag = primaryBatch[idx];
+          if (res.value.length > bestCount) {
+            bestCount = res.value.length;
+            bestTag = candidateTag;
+          }
+          for (const item of res.value) {
+            if (item && item.id && !seenIds.has(item.id)) {
+              seenIds.add(item.id);
+              mergedItems.push(item);
+            }
+          }
         }
-        const altTag = this.findBestAlternativeTag(data, tokens, directTag);
+      });
+
+      if (mergedItems.length >= 12) {
+        this.tagResolutionCache.set(raw, bestTag);
+        return mergedItems.slice(0, limit).map((item) => PinModel.fromSafebooru(item));
+      }
+
+      if (mergedItems.length > 0) {
+        fallbackBatch = { tag: bestTag, data: mergedItems };
+        const altTag = this.findBestAlternativeTag(mergedItems, tokens, bestTag);
         if (altTag) {
           const altData = await this.executeSafebooruFetch(altTag, page, limit);
-          if (altData.length >= data.length) {
+          if (altData.length >= mergedItems.length) {
             this.tagResolutionCache.set(raw, altTag);
             return altData.map((item) => PinModel.fromSafebooru(item));
           }
         }
-        const parenFranchise = this.extractParenFranchise(data);
+        const parenFranchise = this.extractParenFranchise(mergedItems);
         if (parenFranchise) {
           const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
-          if (pData.length >= data.length) {
+          if (pData.length >= mergedItems.length) {
             this.tagResolutionCache.set(raw, parenFranchise);
             return pData.map((item) => PinModel.fromSafebooru(item));
           }
         }
-        const deepFranchise = await this.resolveFranchiseFromCharacterPost(data);
+        const deepFranchise = await this.resolveFranchiseFromCharacterPost(mergedItems);
         if (deepFranchise) {
           const dData = await this.executeSafebooruFetch(deepFranchise, page, limit);
           if (dData.length > 0) {
             this.tagResolutionCache.set(raw, deepFranchise);
             return dData.map((item) => PinModel.fromSafebooru(item));
+          }
+        }
+        this.tagResolutionCache.set(raw, bestTag);
+        return mergedItems.slice(0, limit).map((item) => PinModel.fromSafebooru(item));
+      }
+
+      for (const directTag of uniqueCandidates.slice(3)) {
+        const data = await this.executeSafebooruFetch(directTag, page, limit);
+        if (data.length >= 16) {
+          this.tagResolutionCache.set(raw, directTag);
+          return data.map((item) => PinModel.fromSafebooru(item));
+        }
+        if (data.length > 0) {
+          if (!fallbackBatch) {
+            fallbackBatch = { tag: directTag, data };
+          }
+          const altTag = this.findBestAlternativeTag(data, tokens, directTag);
+          if (altTag) {
+            const altData = await this.executeSafebooruFetch(altTag, page, limit);
+            if (altData.length >= data.length) {
+              this.tagResolutionCache.set(raw, altTag);
+              return altData.map((item) => PinModel.fromSafebooru(item));
+            }
+          }
+          const parenFranchise = this.extractParenFranchise(data);
+          if (parenFranchise) {
+            const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
+            if (pData.length >= data.length) {
+              this.tagResolutionCache.set(raw, parenFranchise);
+              return pData.map((item) => PinModel.fromSafebooru(item));
+            }
+          }
+          const deepFranchise = await this.resolveFranchiseFromCharacterPost(data);
+          if (deepFranchise) {
+            const dData = await this.executeSafebooruFetch(deepFranchise, page, limit);
+            if (dData.length > 0) {
+              this.tagResolutionCache.set(raw, deepFranchise);
+              return dData.map((item) => PinModel.fromSafebooru(item));
+            }
           }
         }
       }
