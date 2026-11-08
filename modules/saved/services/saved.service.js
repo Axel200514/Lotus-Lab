@@ -1,5 +1,5 @@
-import { StorageUtils } from "../../shared/utils/storage.utils.js?v=3.7";
-import { PinModel } from "../../shared/models/pin.model.js?v=3.7";
+import { StorageUtils } from "../../shared/utils/storage.utils.js?v=3.9";
+import { PinModel } from "../../shared/models/pin.model.js?v=3.9";
 
 export class SavedService {
   getSavedPins() {
