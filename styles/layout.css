@@ -65,6 +65,9 @@
     -webkit-backdrop-filter: none;
     background: rgba(10, 12, 16, 0.95);
   }
+  .main-content {
+    padding: 0 16px 95px;
+  }
 }
 
 @media (max-width: 640px) {
