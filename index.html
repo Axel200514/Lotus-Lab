@@ -44,27 +44,29 @@
   <link rel="preconnect" href="https://safebooru.org" crossorigin>
   <link rel="dns-prefetch" href="https://safebooru.org">
 
-  <link rel="stylesheet" href="./styles/variables.css?v=4.1">
-  <link rel="stylesheet" href="./styles/reset.css?v=4.1">
-  <link rel="stylesheet" href="./styles/layout.css?v=4.1">
-  <link rel="stylesheet" href="./styles/utilities.css?v=4.1">
-  <link rel="stylesheet" href="./modules/shared/components/loader/loader.component.css?v=4.1">
+  <link rel="stylesheet" href="./styles/variables.css?v=5.0">
+  <link rel="stylesheet" href="./styles/reset.css?v=5.0">
+  <link rel="stylesheet" href="./styles/layout.css?v=5.0">
+  <link rel="stylesheet" href="./styles/utilities.css?v=5.0">
+  <link rel="stylesheet" href="./modules/shared/components/loader/loader.component.css?v=5.0">
   
-  <link rel="stylesheet" href="./modules/shared/components/navbar/navbar.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/shared/components/modal/modal.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/pins/components/pin-card/pin-card.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/pins/components/pin-list/pin-list.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/explore/components/explore-main/explore-main.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/search/components/search-bar/search-bar.component.css?v=4.1" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="./modules/search/components/tag-filter/tag-filter.component.css?v=4.1" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/shared/components/navbar/navbar.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/shared/components/modal/modal.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/pins/components/pin-card/pin-card.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/pins/components/pin-list/pin-list.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/explore/components/explore-main/explore-main.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/search/components/search-bar/search-bar.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/search/components/tag-filter/tag-filter.component.css?v=5.0" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="./modules/saved/components/saved-list/saved-list.component.css?v=5.0" media="print" onload="this.media='all'">
   <noscript>
-    <link rel="stylesheet" href="./modules/shared/components/navbar/navbar.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/shared/components/modal/modal.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/pins/components/pin-card/pin-card.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/pins/components/pin-list/pin-list.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/explore/components/explore-main/explore-main.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/search/components/search-bar/search-bar.component.css?v=4.1">
-    <link rel="stylesheet" href="./modules/search/components/tag-filter/tag-filter.component.css?v=4.1">
+    <link rel="stylesheet" href="./modules/shared/components/navbar/navbar.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/shared/components/modal/modal.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/pins/components/pin-card/pin-card.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/pins/components/pin-list/pin-list.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/explore/components/explore-main/explore-main.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/search/components/search-bar/search-bar.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/search/components/tag-filter/tag-filter.component.css?v=5.0">
+    <link rel="stylesheet" href="./modules/saved/components/saved-list/saved-list.component.css?v=5.0">
   </noscript>
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ec4899'%3E%3Cpath d='M12 2C12 2 8 8 8 13C8 15.2091 9.79086 17 12 17C14.2091 17 16 15.2091 16 13C16 8 12 2 12 2Z'/%3E%3Cpath d='M7.5 13C5.567 13 4 14.567 4 16.5C4 18.433 7.5 21 7.5 21C7.5 21 11 18.433 11 16.5C11 14.567 9.433 13 7.5 13Z' fill-opacity='0.8'/%3E%3Cpath d='M16.5 13C14.567 13 13 14.567 13 16.5C13 18.433 16.5 21 16.5 21C16.5 21 20 18.433 20 16.5C20 14.567 18.433 13 16.5 13Z' fill-opacity='0.8'/%3E%3C/svg%3E">
@@ -155,7 +157,31 @@
 
       <div class="pins-masonry" id="pins-grid"></div>
       <div class="explore-wrapper d-none" id="explore-view"></div>
-      <div class="pins-masonry d-none" id="saved-grid"></div>
+      <div class="saved-wrapper d-none" id="saved-view">
+        <div class="saved-bar" id="saved-bar">
+          <span class="saved-count-pill" id="saved-count-badge">0 Pins</span>
+          <div class="saved-actions-group" id="saved-actions-group">
+            <input type="file" id="saved-import-input" class="d-none" accept=".json,application/json">
+            <button type="button" class="saved-action-btn" id="saved-import-btn" title="Import Collection (.json)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>Import</span>
+            </button>
+            <button type="button" class="saved-action-btn" id="saved-export-btn" title="Export Collection (.json)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Export</span>
+            </button>
+          </div>
+        </div>
+        <div class="pins-masonry" id="saved-grid"></div>
+      </div>
 
       <div class="loading-indicator" id="loading-indicator">
         <div class="spinner"></div>
@@ -313,9 +339,9 @@
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            <span>Búsquedas Recientes</span>
+            <span>Recent Searches</span>
           </span>
-          <button type="button" class="recent-clear-btn" title="Borrar historial">Borrar todo</button>
+          <button type="button" class="recent-clear-btn" title="Clear search history">Clear all</button>
         </div>
       </div>
       <div class="recent-chips-row"></div>
@@ -384,6 +410,6 @@
     </div>
   </template>
 
-  <script type="module" src="./app/app.js?v=4.1"></script>
+  <script type="module" src="./app/app.js?v=5.0"></script>
 </body>
 </html>

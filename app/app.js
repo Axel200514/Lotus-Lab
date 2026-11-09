@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=4.1";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=4.1";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=4.1";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=4.1";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=4.1";
-import { PinService } from "../modules/pins/services/pin.service.js?v=4.1";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=4.1";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=4.1";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=4.1";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=4.1";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=4.1";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=4.1";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=4.1";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=4.1";
+import { AppRouter } from "./app.routes.js?v=5.0";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.0";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.0";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.0";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.0";
+import { PinService } from "../modules/pins/services/pin.service.js?v=5.0";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=5.0";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.0";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.0";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.0";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.0";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.0";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.0";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.0";
 
 const FALLBACK_TAGS = [
   { label: "Genshin Impact", query: "genshin_impact" },
@@ -23,7 +23,7 @@ const FALLBACK_TAGS = [
   { label: "Blue Archive", query: "blue_archive" },
   { label: "Umamusume", query: "umamusume" },
   { label: "Project Moon", query: "project_moon" },
-  { label: "Fate", query: "fate/grand_order" },
+  { label: "Fate", query: "fate_(series)" },
   { label: "Arknights", query: "arknights" },
   { label: "Hololive", query: "hololive" },
   { label: "Vocaloid", query: "vocaloid" },
@@ -64,6 +64,7 @@ class LotusApp {
 
     this.gridContainer = document.getElementById("pins-grid");
     this.savedGridContainer = document.getElementById("saved-grid");
+    this.savedView = document.getElementById("saved-view");
     this.exploreView = document.getElementById("explore-view");
     this.template = document.getElementById("pin-card-template");
     this.categoriesContainer = document.getElementById("categories-bar");
@@ -91,6 +92,8 @@ class LotusApp {
         this.hasRenderedExplore = false;
         if (!isSaved && this.currentMode === "saved") {
           this.savedList.removePin(pin.id);
+        } else if (isSaved && this.currentMode === "saved") {
+          this.savedList.render();
         }
         return isSaved;
       },
@@ -261,11 +264,13 @@ class LotusApp {
 
   setExploreViewVisible(isExplore) {
     this.exploreView.classList.toggle("d-none", !isExplore);
+    if (this.savedView) this.savedView.classList.add("d-none");
     if (this.savedGridContainer) this.savedGridContainer.classList.add("d-none");
     this.gridContainer.classList.toggle("d-none", isExplore);
   }
 
   setSavedViewVisible(isSaved) {
+    if (this.savedView) this.savedView.classList.toggle("d-none", !isSaved);
     if (this.savedGridContainer) this.savedGridContainer.classList.toggle("d-none", !isSaved);
     this.exploreView.classList.add("d-none");
     this.gridContainer.classList.toggle("d-none", isSaved);
