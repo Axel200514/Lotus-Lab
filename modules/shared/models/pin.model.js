@@ -1,8 +1,19 @@
-const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
-const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room)\)$/i;
+const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|bob_cut|pixie_cut|haircut|hairstyle|hairband|headband|meme)(?:_|$)/i;
+const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room|series)\)$/i;
+
+const decodeHtmlEntities = (str) => {
+  if (typeof str !== "string" || !str.includes("&")) return str || "";
+  return str
+    .replace(/&#039;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+};
 
 const isCleanName = (tag) => {
-  return tag.length > 2 && !/^\d/.test(tag) && !tag.startsWith("&") && !ATTR_REGEX.test(tag);
+  return tag.length > 2 && !/^\d/.test(tag) && !tag.startsWith("&") && !ATTR_REGEX.test(tag) && !/^\(?series\)?$/i.test(tag);
 };
 
 const isSafeHttpUrl = (url) => {
@@ -11,36 +22,97 @@ const isSafeHttpUrl = (url) => {
 
 export class PinModel {
   constructor(data = {}) {
-    this.id = data.id || String(Date.now());
-    this.title = data.title || (data.author ? `Illustration by ${data.author}` : "Digital Illustration");
-    this.previewUrl = data.previewUrl || "";
-    this.fullUrl = data.fullUrl || this.previewUrl;
-    this.sampleUrl = data.sampleUrl || this.previewUrl;
+    this.id = String(data.id || Date.now());
+    const rawTitle = data.title || (data.author ? `Illustration by ${data.author}` : "Digital Illustration");
+    this.title = decodeHtmlEntities(rawTitle);
+    this.character = data.character || "";
+    const rawImg = data.previewUrl || data.image || data.sampleUrl || data.fullUrl || "";
+    this.previewUrl = rawImg;
+    this.thumbnailUrl = data.thumbnailUrl || rawImg;
+    this.sampleUrl = data.sampleUrl || rawImg;
+    this.fullUrl = data.fullUrl || this.sampleUrl || rawImg;
     this.width = Number(data.width) || 1200;
     this.height = Number(data.height) || 1600;
-    this.tags = Array.isArray(data.tags) ? data.tags : [];
-    this.author = data.author || "Visual Artist";
-    this.authorHref = isSafeHttpUrl(data.authorHref) ? data.authorHref.trim() : "";
+    this.tags = Array.isArray(data.tags)
+      ? data.tags.map((t) => decodeHtmlEntities(typeof t === "object" ? t.query || t.label || "" : String(t))).filter(Boolean)
+      : [];
+    if (this.tags.length === 0 && this.title && !this.title.includes("Illustration by") && this.title !== "Digital Illustration") {
+      const matchSeries = this.title.match(/^(.+?)\s*\(([^)]+)\)$/);
+      if (matchSeries) {
+        this.tags = [
+          matchSeries[1].trim().toLowerCase().replace(/\s+/g, "_"),
+          matchSeries[2].trim().toLowerCase().replace(/\s+/g, "_")
+        ].filter((t) => t.length > 1);
+      } else {
+        const cleanTitleTag = this.title.trim().toLowerCase().replace(/\s+/g, "_");
+        if (cleanTitleTag.length > 1) {
+          this.tags = [cleanTitleTag];
+        }
+      }
+    }
+    this.author = decodeHtmlEntities(data.author || "Visual Artist");
+    this.authorHref = isSafeHttpUrl(data.authorHref)
+      ? data.authorHref.trim()
+      : (this.author && this.author.startsWith("@") ? `https://x.com/${this.author.slice(1)}` : "");
     this.source = isSafeHttpUrl(data.source) ? data.source.trim() : this.fullUrl;
-    this.sourceDomain = data.sourceDomain || "pixiv.net";
+    this.sourceDomain = data.sourceDomain || this.deriveDomain(this.source || this.authorHref);
     this.createdAt = data.createdAt || new Date().toISOString();
     this.artworkKey = data.artworkKey || `sb_${this.id}`;
   }
 
+  deriveDomain(url) {
+    if (!url || typeof url !== "string") return "safebooru.org";
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname.replace(/^www\./, "");
+    } catch {
+      return "safebooru.org";
+    }
+  }
+
+  toCompact() {
+    const compact = {
+      id: this.id,
+      title: this.title,
+      image: this.previewUrl || this.sampleUrl || this.fullUrl,
+      width: this.width,
+      height: this.height
+    };
+    if (this.character) {
+      compact.character = this.character;
+    }
+    if (this.fullUrl && this.fullUrl !== compact.image) {
+      compact.fullUrl = this.fullUrl;
+    }
+    if (this.author && this.author !== "Visual Artist") {
+      compact.author = this.author;
+    }
+    if (this.source && this.source !== compact.image && this.source !== this.fullUrl) {
+      compact.source = this.source;
+    }
+    if (Array.isArray(this.tags) && this.tags.length > 0) {
+      compact.tags = this.tags
+        .map((t) => (typeof t === "object" ? t.query || t.label || "" : String(t)).trim().toLowerCase().replace(/\s+/g, "_"))
+        .filter((t) => t.length > 1 && !/^\d+$/.test(t))
+        .slice(0, 16);
+    }
+    return compact;
+  }
+
   static fromSafebooru(item) {
-    const rawTags = (item.tags || "")
+    const rawTags = decodeHtmlEntities(item.tags || "")
       .split(" ")
       .map((t) => t.trim())
       .filter((t) => t.length > 1);
 
     const filteredTags = rawTags.filter(isCleanName);
 
-    let characterTag = item.character || "";
+    let characterTag = item.character ? decodeHtmlEntities(item.character) : "";
     if (!characterTag) {
       characterTag =
         filteredTags.find((t) => t.includes("(") && t.includes(")") && !NON_CHARACTER_SUFFIX_REGEX.test(t)) ||
         filteredTags.find((t) => /^(princess|queen|king|lord|lady)_/i.test(t)) ||
-        filteredTags.find((t) => t.includes("_") && !t.includes(":") && t !== "triforce") ||
+        filteredTags.find((t) => t.includes("_") && !t.includes(":") && t !== "triforce" && !ATTR_REGEX.test(t)) ||
         filteredTags[0] ||
         "Anime Art";
     }
@@ -53,12 +125,10 @@ export class PinModel {
 
     const fileUrl = item.file_url || (item.directory && item.image ? `https://safebooru.org/images/${item.directory}/${item.image}` : "");
     const sampleUrl = item.sample_url || (item.sample && item.directory && item.image ? `https://safebooru.org/samples/${item.directory}/sample_${item.image.replace(/\.[^.]+$/, ".jpg")}` : fileUrl);
-    const full = fileUrl || sampleUrl || item.preview_url || "";
-    const preview = sampleUrl || fileUrl || item.preview_url || "";
-    const formattedTags = rawTags.slice(0, 24).map((t) => ({
-      label: t.replace(/_/g, " "),
-      query: t
-    }));
+    const thumbUrl = item.preview_url || "";
+    const full = fileUrl || sampleUrl || thumbUrl;
+    const preview = sampleUrl || fileUrl || thumbUrl;
+    const formattedTags = rawTags.slice(0, 16);
 
     const src = (item.source || "").trim();
     let authorName = item.artist ? (item.artist.startsWith("@") ? item.artist : `@${item.artist}`) : "";
@@ -114,20 +184,13 @@ export class PinModel {
         authorName = `@${match[1]}`;
         authorHref = `https://${match[1]}.lofter.com`;
       }
-    } else if (!authorName && item.owner && item.owner !== "danbooru") {
+    } else if (!authorName && item.owner && item.owner !== "danbooru" && !/^\d+$/.test(item.owner)) {
       authorName = `@${item.owner}`;
     }
 
     if (!authorName) {
-      const candidateArtistTag = filteredTags.find((t) => t !== characterTag && !t.includes(":") && t !== "triforce");
-      if (candidateArtistTag) {
-        const cleanArtist = candidateArtistTag.replace(/_\(artist\)$/, "");
-        authorName = `@${cleanArtist}`;
-        authorHref = `https://safebooru.org/index.php?page=post&s=list&tags=${encodeURIComponent(cleanArtist)}`;
-      } else {
-        authorName = "Digital Artist";
-        domain = "Digital Illustration";
-      }
+      authorName = "Digital Artist";
+      domain = "Digital Illustration";
     }
 
     let artworkKey = "";
@@ -153,6 +216,7 @@ export class PinModel {
       id: `sb_${item.id}`,
       artworkKey,
       title: cleanTitle,
+      character: characterTag,
       previewUrl: preview,
       fullUrl: full,
       sampleUrl: sampleUrl,

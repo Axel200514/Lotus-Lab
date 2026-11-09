@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=4.1";
-import { StorageUtils } from "../../utils/storage.utils.js?v=4.1";
-import { API_CONFIG } from "../../../../app/app.config.js?v=4.1";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.0";
+import { StorageUtils } from "../../utils/storage.utils.js?v=5.0";
+import { API_CONFIG } from "../../../../app/app.config.js?v=5.0";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
@@ -34,6 +34,7 @@ export class ModalComponent {
     this.dimensions = document.getElementById("modal-dimensions");
     this.idEl = document.getElementById("modal-id");
     this.tagsContainer = document.getElementById("modal-tags");
+    this.tagsSection = this.tagsContainer ? this.tagsContainer.closest(".modal-tags-container") : null;
     this.sourceLink = document.getElementById("modal-source-link");
     this.downloadBtn = document.getElementById("modal-download-btn");
     this.shareBtn = document.getElementById("modal-share-btn");
@@ -319,6 +320,9 @@ export class ModalComponent {
     this.tagsContainer.textContent = "";
     const fragment = document.createDocumentFragment();
     const tagsToRender = (pin.tags || []).slice(0, 16);
+    if (this.tagsSection) {
+      this.tagsSection.classList.toggle("d-none", tagsToRender.length === 0);
+    }
     tagsToRender.forEach((tagItem) => {
       const label = typeof tagItem === "object" && tagItem.label ? tagItem.label : String(tagItem).replace(/_/g, " ");
       const query = typeof tagItem === "object" && tagItem.query ? tagItem.query : String(tagItem);
@@ -448,7 +452,10 @@ export class ModalComponent {
       this.hasMoreRelated = true;
       this.relatedCache.set(pin.id, { pins: [], page: 1, hasMore: true });
       if (this.relatedContainer) {
-        this.relatedContainer.classList.remove("d-none");
+        this.relatedContainer.classList.add("d-none");
+      }
+      if (this.scrollCue) {
+        this.scrollCue.classList.add("hide");
       }
     }
 
@@ -464,7 +471,20 @@ export class ModalComponent {
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
         if (entry) entry.hasMore = false;
+        if (isInitial && this.relatedContainer) {
+          this.relatedContainer.classList.add("d-none");
+        }
+        if (this.scrollCue) {
+          this.scrollCue.classList.add("hide");
+        }
         return;
+      }
+
+      if (this.relatedContainer) {
+        this.relatedContainer.classList.remove("d-none");
+      }
+      if (this.scrollCue) {
+        this.scrollCue.classList.remove("hide");
       }
 
       const uniqueRelated = related.filter((relPin) => {

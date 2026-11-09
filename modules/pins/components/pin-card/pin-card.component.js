@@ -22,24 +22,61 @@ export class PinCardComponent {
     img.referrerPolicy = "no-referrer";
     img.loading = "lazy";
     img.decoding = "async";
-    img.alt = pin.title;
+    img.alt = pin.title || "Illustration";
     img.width = pin.width || 800;
     img.height = pin.height || 1000;
 
+    const sources = [
+      pin.previewUrl,
+      pin.sampleUrl,
+      pin.thumbnailUrl,
+      pin.fullUrl
+    ].filter(Boolean);
+    const uniqueSources = [...new Set(sources)];
+    let sourceIndex = 0;
+    let isLoaded = false;
+
     const onImageLoaded = () => {
+      isLoaded = true;
       img.classList.add("loaded");
+      img.classList.remove("error");
     };
 
-    img.addEventListener("load", onImageLoaded, { once: true });
-    img.onerror = () => {
-      if (pin.sampleUrl && img.src !== pin.sampleUrl) {
-        img.src = pin.sampleUrl;
+    img.addEventListener("load", onImageLoaded);
+
+    img.addEventListener("error", () => {
+      sourceIndex++;
+      if (sourceIndex < uniqueSources.length) {
+        img.src = uniqueSources[sourceIndex];
+      } else {
+        img.classList.add("loaded");
+        img.classList.add("error");
       }
-    };
-    img.src = pin.previewUrl;
+    });
+
+    img.src = uniqueSources[0] || "";
 
     if (img.complete && img.naturalWidth > 0) {
       onImageLoaded();
+    }
+
+    if ("IntersectionObserver" in window && card) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && !isLoaded) {
+              if (img.complete && img.naturalWidth === 0) {
+                sourceIndex++;
+                if (sourceIndex < uniqueSources.length) {
+                  img.src = uniqueSources[sourceIndex];
+                }
+              }
+            }
+          });
+        },
+        { rootMargin: "200px" }
+      );
+      observer.observe(card);
     }
 
     titleEl.textContent = pin.title;

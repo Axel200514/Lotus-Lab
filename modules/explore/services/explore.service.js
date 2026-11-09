@@ -1,10 +1,10 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=4.1";
-import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=4.1";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
+import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=5.0";
 
-const CACHE_KEY = "lotus_explore_cache_v22";
+const CACHE_KEY = "lotus_explore_cache_v24";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v22";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v24";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 21; i++) {
+      for (let i = 1; i <= 23; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
@@ -174,7 +174,7 @@ export class ExploreService {
     savedPins.forEach((p) => {
       if (p.title) {
         const titleTag = p.title.trim().toLowerCase().replace(/\s+/g, "_");
-        if (titleTag && titleTag.length > 2 && !ATTR_REGEX.test(titleTag) && !/^\d/.test(titleTag)) {
+        if (titleTag && titleTag.length > 2 && !ATTR_REGEX.test(titleTag) && !/^\d/.test(titleTag) && !/^\(?series\)?$/i.test(titleTag)) {
           tagOccurrences.set(titleTag, (tagOccurrences.get(titleTag) || 0) + 2);
         }
       }
@@ -183,7 +183,7 @@ export class ExploreService {
           const raw = typeof t === "string" ? t : t.query || t.label;
           if (!raw) return;
           const clean = raw.trim().toLowerCase();
-          if (clean.length > 2 && !/^\d/.test(clean) && !ATTR_REGEX.test(clean)) {
+          if (clean.length > 2 && !/^\d/.test(clean) && !ATTR_REGEX.test(clean) && !/^\(?series\)?$/i.test(clean)) {
             tagOccurrences.set(clean, (tagOccurrences.get(clean) || 0) + 1);
           }
         });
@@ -191,7 +191,7 @@ export class ExploreService {
     });
 
     const recurringTags = [...tagOccurrences.entries()]
-      .filter(([_, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
 
     const dynamicKnownTags = new Set([
@@ -200,9 +200,10 @@ export class ExploreService {
       ...recentSearches
         .map((s) => (s || "").trim().toLowerCase().replace(/\s+/g, "_"))
         .filter((s) => s.length > 2 && !ATTR_REGEX.test(s) && !/^\d/.test(s)),
-      ...savedPins
-        .map((p) => (p.title || "").trim().toLowerCase().replace(/\s+/g, "_"))
-        .filter((t) => t.length > 2 && !ATTR_REGEX.test(t) && !/^\d/.test(t)),
+      ...savedPins.flatMap((p) => [
+        (p.title || "").trim().toLowerCase().replace(/\s+/g, "_"),
+        ...(Array.isArray(p.tags) ? p.tags.map((t) => (typeof t === "string" ? t : t.query || t.label || "").trim().toLowerCase().replace(/\s+/g, "_")) : [])
+      ]).filter((t) => t.length > 2 && !ATTR_REGEX.test(t) && !/^\d/.test(t)),
       ...recurringTags
     ]);
     const userTasteTags = StorageUtils.getUserTasteTags(dynamicKnownTags);
@@ -214,7 +215,7 @@ export class ExploreService {
     const userCandidates = userTasteTags;
     for (const term of userCandidates) {
       const clean = (term || "").trim();
-      if (!clean) continue;
+      if (!clean || /^\(?series\)?$/i.test(clean)) continue;
       const q = clean.replace(/\s+/g, "_").toLowerCase();
       if (usedQueries.has(q)) continue;
       if ([...usedQueries].some((existing) => existing.split("_").includes(q) || q.split("_").includes(existing))) continue;
@@ -229,6 +230,30 @@ export class ExploreService {
           previewUrl: preview
         });
         if (selectedTopics.length >= 5) break;
+      }
+    }
+
+    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
+      for (const board of exploreData.boards) {
+        if (!board || !board.tag) continue;
+        const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
+        if (usedQueries.has(q)) continue;
+        let preview = "";
+        if (Array.isArray(board.previews)) {
+          const unused = board.previews.find((p) => p && !usedPreviews.has(p));
+          if (unused) preview = unused;
+        }
+        if (preview) {
+          usedQueries.add(q);
+          usedPreviews.add(preview);
+          selectedTopics.push({
+            title: board.title || this.formatTitle(board.tag),
+            tag: board.tag,
+            query: q,
+            previewUrl: preview
+          });
+          if (selectedTopics.length >= 5) break;
+        }
       }
     }
 
@@ -258,74 +283,6 @@ export class ExploreService {
           });
           if (selectedTopics.length >= 5) break;
         }
-      }
-    }
-
-    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
-      const remainingBoards = exploreData.boards.slice(4).concat(exploreData.boards.slice(0, 4));
-      for (const board of remainingBoards) {
-        if (!board || !board.tag) continue;
-        const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
-        if (usedQueries.has(q)) continue;
-        let preview = "";
-        if (Array.isArray(board.previews)) {
-          const unused = board.previews.find((p) => p && !usedPreviews.has(p));
-          if (unused) preview = unused;
-        }
-        if (preview) {
-          usedQueries.add(q);
-          usedPreviews.add(preview);
-          selectedTopics.push({
-            title: board.title || this.formatTitle(board.tag),
-            tag: board.tag,
-            query: q,
-            previewUrl: preview
-          });
-          if (selectedTopics.length >= 5) break;
-        }
-      }
-    }
-
-    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
-      for (const board of exploreData.boards) {
-        if (!board || !board.tag) continue;
-        const q = board.tag.trim().replace(/\s+/g, "_").toLowerCase();
-        if (usedQueries.has(q)) continue;
-        let preview = "";
-        if (Array.isArray(board.previews)) {
-          const unused = board.previews.find((p) => p && !usedPreviews.has(p));
-          if (unused) preview = unused;
-        }
-        if (preview) {
-          usedQueries.add(q);
-          usedPreviews.add(preview);
-          selectedTopics.push({
-            title: board.title || this.formatTitle(board.tag),
-            tag: board.tag,
-            query: q,
-            previewUrl: preview
-          });
-          if (selectedTopics.length >= 5) break;
-        }
-      }
-    }
-
-    if (selectedTopics.length < 5 && Array.isArray(exploreData.boards)) {
-      for (const board of exploreData.boards) {
-        if (!board || !Array.isArray(board.previews)) continue;
-        for (const prev of board.previews) {
-          if (prev && !usedPreviews.has(prev)) {
-            usedPreviews.add(prev);
-            selectedTopics.push({
-              title: board.title || this.formatTitle(board.tag),
-              tag: board.tag,
-              query: `${board.tag}_${selectedTopics.length}`,
-              previewUrl: prev
-            });
-            if (selectedTopics.length >= 5) break;
-          }
-        }
-        if (selectedTopics.length >= 5) break;
       }
     }
 

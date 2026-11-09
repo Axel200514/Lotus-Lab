@@ -4,7 +4,7 @@ const VIEWED_PINS_KEY = "lotus_viewed_pins_history";
 const IDEAS_CACHE_KEY = "lotus_ideas_cache_v22";
 const FEED_SEEN_KEY = "lotus_feed_seen_ids";
 
-export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
+export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
 
 export class StorageUtils {
   static isThematicTag(tag, dynamicKnownTags = null) {
@@ -12,12 +12,8 @@ export class StorageUtils {
     const clean = tag.trim().toLowerCase();
     if (clean.length < 3 || /^\d/.test(clean)) return false;
     if (ATTR_REGEX.test(clean)) return false;
-    if (clean.includes("(") && clean.includes(")")) return true;
-    if (clean.includes(":")) return true;
-    if (clean.includes("/")) return true;
-    if (clean.endsWith("_(series)") || clean.endsWith("_(game)") || clean.endsWith("_(anime)")) return true;
-    if (dynamicKnownTags && dynamicKnownTags.has(clean)) return true;
-    return false;
+    if (/^(series|game|anime|manga|novel|cosplay|style|medium)$/i.test(clean)) return false;
+    return true;
   }
 
   static getSavedPins() {
@@ -44,7 +40,17 @@ export class StorageUtils {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
       return false;
     } else {
-      list.unshift(pin);
+      const compact = typeof pin.toCompact === "function" ? pin.toCompact() : {
+        id: pin.id,
+        title: pin.title,
+        image: pin.previewUrl || pin.sampleUrl || pin.image,
+        width: pin.width,
+        height: pin.height,
+        ...(pin.fullUrl && pin.fullUrl !== (pin.previewUrl || pin.sampleUrl || pin.image) ? { fullUrl: pin.fullUrl } : {}),
+        ...(pin.author && pin.author !== "Visual Artist" ? { author: pin.author } : {}),
+        ...(pin.source ? { source: pin.source } : {})
+      };
+      list.unshift(compact);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
       return true;
     }
@@ -175,9 +181,14 @@ export class StorageUtils {
 
               const m = clean.match(/^(.+)\(([^)]+)\)$/);
               if (m) {
-                const franchise = m[2].trim();
-                if (franchise.length >= 3) {
-                  tagCounts.set(franchise, (tagCounts.get(franchise) || 0) + weight);
+                const inner = m[2].trim();
+                const outer = m[1].replace(/_+$/, "").trim();
+                if (/^(series|game|anime|manga|novel|cosplay|style|medium)$/i.test(inner)) {
+                  if (outer.length >= 3 && this.isThematicTag(outer, dynamicKnownTags)) {
+                    tagCounts.set(outer, (tagCounts.get(outer) || 0) + weight);
+                  }
+                } else if (inner.length >= 3 && this.isThematicTag(inner, dynamicKnownTags)) {
+                  tagCounts.set(inner, (tagCounts.get(inner) || 0) + weight);
                 }
               }
             }

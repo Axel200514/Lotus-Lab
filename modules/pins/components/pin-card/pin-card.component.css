@@ -21,7 +21,7 @@
   width: 100%;
   border-radius: 20px;
   overflow: hidden;
-  background-color: #171922;
+  background: linear-gradient(145deg, #181b24 0%, #202533 100%);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -39,6 +39,11 @@
 .pin-image.loaded {
   opacity: 1;
   transform: scale(1);
+}
+
+.pin-image.error {
+  opacity: 0.25;
+  filter: grayscale(1);
 }
 
 .pin-card:hover .pin-image.loaded {

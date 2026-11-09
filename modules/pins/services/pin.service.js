@@ -1,46 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=4.1";
-import { PinModel } from "../../shared/models/pin.model.js?v=4.1";
-import { StorageUtils } from "../../shared/utils/storage.utils.js?v=4.1";
-
-const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
-
-let aliasesData = {};
-let aliasesPromise = null;
-
-function loadAliases() {
-  if (aliasesPromise) return aliasesPromise;
-  const url = new URL("../../../data/aliases.json?v=4.1", import.meta.url).href;
-  aliasesPromise = fetch(url)
-    .then((res) => (res.ok ? res.json() : {}))
-    .then((data) => {
-      aliasesData = data || {};
-      return aliasesData;
-    })
-    .catch(() => {
-      aliasesData = {};
-      return aliasesData;
-    });
-  return aliasesPromise;
-}
-
-loadAliases();
-
-const COMPOUND_PREFIXES = [
-  "blue", "black", "white", "red", "dark", "death", "dragon", "star", "fire",
-  "sword", "soul", "magic", "cyber", "pixel", "retro", "super", "demon",
-  "hunter", "hero", "space", "moon", "sun", "iron", "blood", "shadow",
-  "ghost", "grand", "night", "fate", "love", "solo", "deadly", "chainsaw",
-  "one", "full", "seven", "tokyo", "shin", "neo", "spy", "jujutsu", "bocchi"
-];
-
-const GENERIC_DISCARD_TAGS = new Set([
-  "family", "girl", "girls", "boy", "boys", "man", "woman", "child", "children",
-  "dog", "cat", "animal", "food", "room", "sky", "water", "tree", "flower",
-  "house", "city", "street", "car", "school", "bed", "table", "chair", "door"
-]);
-
-const STOP_WORDS = new Set(["the", "no", "la", "de", "of", "and", "in", "to", "a", "on", "at", "by", "or", "is", "it", "wa"]);
-const SPANISH_WORDS = new Set(["fondo", "pantalla", "chica", "chico", "paisaje", "cielo", "ojos", "pelo", "cabello", "armadura", "vestido", "espada", "del", "las", "los", "una", "con", "por", "para"]);
+import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.0";
+import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=5.0";
 
 export class PinService {
   constructor() {
@@ -76,29 +36,16 @@ export class PinService {
     if (!clean) return "";
 
     const xFixed = clean.replace(/([a-z0-9]+)\s*x\s*([a-z0-9]+)/gi, (m, g1, g2) => `${g1}_x_${g2}`);
-    const alphaNum = clean.replace(/[^a-z0-9]/g, "");
-    const xAlphaNum = xFixed.replace(/[^a-z0-9]/g, "");
-
-    if (aliasesData[alphaNum]) return aliasesData[alphaNum];
-    if (aliasesData[xAlphaNum]) return aliasesData[xAlphaNum];
-    if (aliasesData[clean]) return aliasesData[clean];
-
-    const cleanUnderscored = clean.replace(/[\s-]+/g, "_");
-    if (aliasesData[cleanUnderscored]) return aliasesData[cleanUnderscored];
-
     if (xFixed !== clean) {
       return xFixed.replace(/[\s-]+/g, "_");
     }
 
-    for (const prefix of COMPOUND_PREFIXES) {
-      if (alphaNum.startsWith(prefix) && alphaNum.length > prefix.length + 2) {
-        const candidate = `${prefix}_${alphaNum.slice(prefix.length)}`;
-        if (aliasesData[candidate]) return aliasesData[candidate];
-        return candidate;
-      }
+    if (/\(series\)$/i.test(clean) || /_series$/i.test(clean) || /\s+series$/i.test(clean)) {
+      const base = clean.replace(/[\s_]*\(?series\)?$/i, "").trim().replace(/[\s-]+/g, "_");
+      if (base) return `${base}_(series)`;
     }
 
-    return cleanUnderscored;
+    return clean.replace(/[\s-]+/g, "_");
   }
 
   toSingular(word) {
@@ -113,15 +60,8 @@ export class PinService {
     const clean = (query || "").trim().toLowerCase();
     if (!clean) return "";
 
-    await loadAliases();
-
     if (this.translationCache.has(clean)) {
       return this.translationCache.get(clean);
-    }
-
-    if (aliasesData[clean]) {
-      this.translationCache.set(clean, aliasesData[clean]);
-      return aliasesData[clean];
     }
 
     try {
@@ -135,11 +75,10 @@ export class PinService {
         const text = await res.text();
         const data = JSON.parse(text);
         if (data && data[0]) {
-          const raw = data[0].map((s) => s[0]).join("").replace(/[.,/#!$%^&*;:{}=\`~()]/g, "").trim().toLowerCase();
-          const resolved = aliasesData[raw] || raw;
-          if (resolved) {
-            this.translationCache.set(clean, resolved);
-            return resolved;
+          const raw = data[0].map((s) => s[0]).join("").replace(/[.,/#!$%^&*;:{}=`~()]/g, "").trim().toLowerCase();
+          if (raw) {
+            this.translationCache.set(clean, raw);
+            return raw;
           }
         }
       }
@@ -192,9 +131,7 @@ export class PinService {
   }
 
   isSpanish(text) {
-    if (/[áéíóúüñ]/i.test(text)) return true;
-    const words = (text || "").toLowerCase().split(/\s+/);
-    return words.some((w) => SPANISH_WORDS.has(w));
+    return /[áéíóúüñ]/i.test(text || "");
   }
 
   async translateToRomaji(text) {
@@ -218,7 +155,7 @@ export class PinService {
       .toLowerCase()
       .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
-      .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
+      .filter((t) => t.length >= 2);
   }
 
   buildSearchCandidates(raw) {
@@ -229,6 +166,16 @@ export class PinService {
     if (normalized) {
       candidates.add(normalized);
       candidates.add(normalized.replace(/[\s-]+/g, "_"));
+    }
+
+    if (/\(series\)$/i.test(clean) || /_series$/i.test(clean) || /\s+series$/i.test(clean)) {
+      const base = clean.replace(/[\s_]*\(?series\)?$/i, "").trim().replace(/[\s-]+/g, "_");
+      if (base) {
+        candidates.add(`${base}_(series)`);
+        candidates.add(base);
+        candidates.add(`${base}_(anime)`);
+        candidates.add(`${base}_(game)`);
+      }
     }
 
     const xFixed = clean.replace(/([a-z0-9]+)\s*x\s*([a-z0-9]+)/gi, (m, g1, g2) => `${g1}_x_${g2}`);
@@ -242,25 +189,8 @@ export class PinService {
     candidates.add(underscored);
     candidates.add(clean);
 
-    if (words.length >= 2) {
-      if (words.length === 2) {
-        candidates.add(`${words[1]}_${words[0]}`);
-      }
-      candidates.add(`${words[0]}:${words.slice(1).join("_")}`);
-      candidates.add(`${words[0]}:_${words.slice(1).join("_")}`);
-      candidates.add(`${words[0]}/${words.slice(1).join("_")}`);
-      candidates.add(words.join(";"));
-      candidates.add(words.join("-"));
-      candidates.add(`${words.join("_")}!`);
-    } else if (words.length === 1) {
-      candidates.add(`${words[0]}!`);
-    }
-
-    const alphaNum = clean.replace(/[^a-z0-9]/g, "");
-    for (const prefix of COMPOUND_PREFIXES) {
-      if (alphaNum.startsWith(prefix) && alphaNum.length > prefix.length + 2) {
-        candidates.add(`${prefix}_${alphaNum.slice(prefix.length)}`);
-      }
+    if (words.length === 2 && !clean.includes("series")) {
+      candidates.add(`${words[1]}_${words[0]}`);
     }
 
     return Array.from(candidates);
@@ -315,7 +245,7 @@ export class PinService {
       for (const tag of rawTags) {
         const cleanTag = (tag || "").trim().toLowerCase();
         if (!cleanTag || cleanTag.length < 3 || cleanTag === cleanCurrent) continue;
-        if (tokens.length >= 2 && GENERIC_DISCARD_TAGS.has(cleanTag)) continue;
+        if (ATTR_REGEX.test(cleanTag)) continue;
 
         let matches = 0;
         for (const token of tokens) {
@@ -562,8 +492,6 @@ export class PinService {
       return data.map((item) => PinModel.fromSafebooru(item));
     }
 
-    await loadAliases();
-
     if (this.tagResolutionCache.has(raw)) {
       const resolvedTag = this.tagResolutionCache.get(raw);
       const data = await this.executeSafebooruFetch(resolvedTag, page, limit);
@@ -573,6 +501,7 @@ export class PinService {
       this.tagResolutionCache.delete(raw);
     }
 
+    let fallbackBatch = null;
     const normalized = this.normalizeQuery(raw);
     if (normalized && normalized !== raw) {
       if (this.tagResolutionCache.has(normalized)) {
@@ -585,9 +514,12 @@ export class PinService {
       }
 
       const normData = await this.executeSafebooruFetch(normalized, page, limit);
-      if (normData.length > 0) {
+      if (normData.length >= 16) {
         this.tagResolutionCache.set(raw, normalized);
         return normData.map((item) => PinModel.fromSafebooru(item));
+      }
+      if (normData.length > 0) {
+        fallbackBatch = { tag: normalized, data: normData };
       }
     }
 
@@ -602,8 +534,6 @@ export class PinService {
 
     const tokens = this.extractSignificantTokens(raw);
     const directCandidates = this.buildSearchCandidates(raw);
-
-    let fallbackBatch = null;
 
     const uniqueCandidates = Array.from(new Set(directCandidates.filter(Boolean)));
     if (uniqueCandidates.length > 0) {
@@ -763,19 +693,46 @@ export class PinService {
   determinePinAnchors(pin) {
     const cleanTags = (pin.tags || [])
       .map((t) => (typeof t === "object" && t.query ? t.query : t || "").trim().toLowerCase().replace(/\s+/g, "_"))
-      .filter((t) => t.length > 2 && !/^\d/.test(t) && !t.startsWith("&") && !ANCHOR_ATTR_REGEX.test(t));
+      .filter((t) => t.length > 2 && !/^\d/.test(t) && !t.startsWith("&") && !ATTR_REGEX.test(t));
 
     const characterTags = [];
     const seriesTags = [];
     const themeTags = [];
 
+    if (pin.character) {
+      const c = pin.character.trim().toLowerCase().replace(/\s+/g, "_");
+      if (c.length > 2 && !ATTR_REGEX.test(c)) {
+        characterTags.push(c);
+      }
+    }
+
+    const titleNormalized = (pin.title || "")
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, "&")
+      .trim();
+
+    const titleMatch = titleNormalized.match(/^(.+?)\s*\(([^)]+)\)$/);
+    if (titleMatch) {
+      const c = titleMatch[1].trim().toLowerCase().replace(/\s+/g, "_");
+      const s = titleMatch[2].trim().toLowerCase().replace(/\s+/g, "_");
+      if (c.length > 2 && !ATTR_REGEX.test(c) && !characterTags.includes(c)) characterTags.push(c);
+      if (s.length > 2 && !ATTR_REGEX.test(s) && !seriesTags.includes(s)) seriesTags.push(s);
+    } else if (titleNormalized && !titleNormalized.includes("Illustration") && !titleNormalized.includes("Digital Artist")) {
+      const c = titleNormalized.toLowerCase().replace(/\s+/g, "_");
+      if (c.length > 2 && !ATTR_REGEX.test(c) && !characterTags.includes(c)) {
+        characterTags.push(c);
+      }
+    }
+
     for (const t of cleanTags) {
       if (t.includes("(") && t.includes(")")) {
-        characterTags.push(t);
+        if (!characterTags.includes(t)) characterTags.push(t);
         const match = t.match(/\(([^)]+)\)/);
         if (match && match[1] && !seriesTags.includes(match[1])) {
           seriesTags.push(match[1]);
         }
+      } else if (characterTags.includes(t)) {
+        continue;
       } else if (t.includes("_")) {
         themeTags.push(t);
       }
@@ -786,18 +743,19 @@ export class PinService {
       pin.author &&
       !pin.author.includes("Digital Artist") &&
       !pin.author.includes("Visual Artist") &&
+      !pin.author.includes("Pixiv Artist") &&
       !pin.author.includes("Artista Digital") &&
       !pin.author.includes("Artista Visual")
     ) {
       const cleanArtist = pin.author.replace(/^@/, "").trim().toLowerCase();
-      if (cleanArtist && cleanArtist !== "pixiv" && cleanArtist !== "danbooru") {
+      if (cleanArtist && cleanArtist !== "pixiv" && cleanArtist !== "danbooru" && !ATTR_REGEX.test(cleanArtist)) {
         primaryArtist = cleanArtist;
       }
     }
 
-    const anchorsPool = [...seriesTags, ...characterTags, ...themeTags];
+    const anchorsPool = [...characterTags, ...seriesTags, ...themeTags];
     if (primaryArtist && !anchorsPool.includes(primaryArtist)) {
-      anchorsPool.unshift(primaryArtist);
+      anchorsPool.push(primaryArtist);
     }
 
     return {
@@ -821,9 +779,6 @@ export class PinService {
     const collectedIds = new Set(excludeIds ? [...excludeIds] : []);
     collectedIds.add(pin.id);
 
-    const pinNum = parseInt(String(pin.id).replace(/\D/g, ""), 10) || 1;
-    const seedOffset = (pinNum % 12);
-
     const queryTags = [];
     if (anchors.primaryCharacter && anchors.primarySeries) {
       queryTags.push(`${anchors.primaryCharacter}+${anchors.primarySeries}`);
@@ -833,9 +788,6 @@ export class PinService {
     }
     if (anchors.primarySeries && !queryTags.includes(anchors.primarySeries)) {
       queryTags.push(anchors.primarySeries);
-    }
-    if (anchors.primaryArtist && !queryTags.includes(anchors.primaryArtist)) {
-      queryTags.push(anchors.primaryArtist);
     }
     for (const a of anchors.allAnchors) {
       if (!queryTags.includes(a)) {
@@ -849,7 +801,7 @@ export class PinService {
       if (results.length >= limit) break;
       const tag = queryTags[i];
       const clean = tag.replace(/\s+/g, "_").replace(/[*]+/g, "");
-      const targetPage = page + seedOffset + (i * 2);
+      const targetPage = Math.max(0, page - 1);
       const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(clean)}&page=${targetPage}&limit=${fetchAmount}`;
 
       try {
@@ -870,6 +822,9 @@ export class PinService {
                   results.push(item);
                   if (results.length >= limit) break;
                 }
+              }
+              if (i === 0 && results.length >= 2) {
+                break;
               }
             }
           }
