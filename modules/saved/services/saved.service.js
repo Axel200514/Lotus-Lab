@@ -21,12 +21,19 @@ export class SavedService {
 
   importPins(importedData) {
     let pinList = [];
-    if (Array.isArray(importedData)) {
+    if (importedData && typeof importedData === "object" && !Array.isArray(importedData)) {
+      if (importedData.app && importedData.app !== "Lotus") {
+        throw new Error("Invalid format: collection does not match Lotus signature");
+      }
+      if (Array.isArray(importedData.pins)) {
+        pinList = importedData.pins;
+      } else {
+        throw new Error("Invalid format: collection has no pins");
+      }
+    } else if (Array.isArray(importedData)) {
       pinList = importedData;
-    } else if (importedData && Array.isArray(importedData.pins)) {
-      pinList = importedData.pins;
     } else {
-      throw new Error("Invalid format: expected a JSON array or Lotus collection");
+      throw new Error("Invalid format: expected a Lotus collection (.json)");
     }
 
     const currentPins = StorageUtils.getSavedPins();
@@ -44,6 +51,12 @@ export class SavedService {
         continue;
       }
 
+      const rawImg = raw.previewUrl || raw.image || raw.sampleUrl || raw.fullUrl || "";
+      if (!rawImg || typeof rawImg !== "string" || !/^https?:\/\//i.test(rawImg.trim())) {
+        skippedCount++;
+        continue;
+      }
+
       const strId = String(raw.id || "");
       const artKey = raw.artworkKey || (strId ? `sb_${strId}` : "");
 
@@ -53,6 +66,11 @@ export class SavedService {
       }
 
       const model = new PinModel(raw);
+      if (!model.previewUrl) {
+        skippedCount++;
+        continue;
+      }
+
       if (model.id) {
         existingIds.add(String(model.id));
       }

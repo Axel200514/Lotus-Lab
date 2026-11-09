@@ -24,6 +24,17 @@ export class SavedListComponent {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
 
+        if (file.size > 10 * 1024 * 1024) {
+          showToast({
+            title: "File too large",
+            subtitle: "Collection file exceeds the 10 MB limit",
+            type: "default",
+            icon: "info",
+            duration: 3000
+          });
+          return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
           try {

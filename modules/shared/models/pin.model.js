@@ -27,10 +27,10 @@ export class PinModel {
     this.title = decodeHtmlEntities(rawTitle);
     this.character = data.character || "";
     const rawImg = data.previewUrl || data.image || data.sampleUrl || data.fullUrl || "";
-    this.previewUrl = rawImg;
-    this.thumbnailUrl = data.thumbnailUrl || rawImg;
-    this.sampleUrl = data.sampleUrl || rawImg;
-    this.fullUrl = data.fullUrl || this.sampleUrl || rawImg;
+    this.previewUrl = isSafeHttpUrl(rawImg) ? rawImg.trim() : "";
+    this.thumbnailUrl = isSafeHttpUrl(data.thumbnailUrl) ? data.thumbnailUrl.trim() : this.previewUrl;
+    this.sampleUrl = isSafeHttpUrl(data.sampleUrl) ? data.sampleUrl.trim() : this.previewUrl;
+    this.fullUrl = isSafeHttpUrl(data.fullUrl) ? data.fullUrl.trim() : (this.sampleUrl || this.previewUrl);
     this.width = Number(data.width) || 1200;
     this.height = Number(data.height) || 1600;
     this.tags = Array.isArray(data.tags)
