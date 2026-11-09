@@ -71,7 +71,7 @@ export class PinListComponent {
 
     pins.forEach((pin) => {
       if (!pin || !pin.id) return;
-      if (this.renderedPins.some((p) => p.id === pin.id)) return;
+      if (this.renderedPins.some((p) => p.id === pin.id || (p.artworkKey && p.artworkKey === pin.artworkKey))) return;
 
       this.renderedPins.push(pin);
       const isSaved = this.savedService.isSaved(pin.id);

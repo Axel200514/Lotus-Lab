@@ -1,5 +1,6 @@
 import { API_CONFIG } from "../../../app/app.config.js?v=4.0";
 import { PinModel } from "../../shared/models/pin.model.js?v=4.0";
+import { StorageUtils } from "../../shared/utils/storage.utils.js?v=4.0";
 
 const ANCHOR_ATTR_REGEX = /(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|apple|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|safebooru|pixiv|twitter|resolución|vertical|horizontal|digital|ilustración|anime)/i;
 
@@ -47,12 +48,14 @@ export class PinService {
     this.translationCache = new Map();
     this.tagResolutionCache = new Map();
     this.sessionSeenIds = new Set();
+    this.sessionSeenArtworks = new Set();
     this.resetSession();
   }
 
   resetSession() {
-    this.sessionOffset = Math.floor(Math.random() * 250) + 1;
-    this.sessionSeenIds = new Set();
+    this.sessionOffset = Math.floor(Math.random() * 1500) + 1;
+    this.sessionSeenIds = StorageUtils.getFeedSeenIds();
+    this.sessionSeenArtworks = new Set();
     this.resetTopicSession();
     this.resetSearchSession();
     if (this.cache) {
@@ -428,8 +431,9 @@ export class PinService {
 
   async getFeedPins(page = 1, limit = API_CONFIG.defaultLimit) {
     const half = Math.max(6, Math.floor(limit / 2));
-    const pageA = (page * 2 - 1) + this.sessionOffset;
-    const pageB = (page * 2) + this.sessionOffset + 27;
+    const base = (page - 1) * 2 + this.sessionOffset;
+    const pageA = base + 1;
+    const pageB = base + 2;
 
     const [batchA, batchB] = await Promise.allSettled([
       this.fetchSafebooru("", pageA, half),
@@ -439,22 +443,34 @@ export class PinService {
     const listA = batchA.status === "fulfilled" ? batchA.value : [];
     const listB = batchB.status === "fulfilled" ? batchB.value : [];
     const seen = new Set();
+    const seenArtworks = new Set();
     const combined = [];
+    const feedSeen = StorageUtils.getFeedSeenIds();
 
     for (const item of [...listA, ...listB]) {
-      if (!this.sessionSeenIds.has(item.id) && !seen.has(item.id)) {
+      if (!item || !item.id) continue;
+      const artKey = item.artworkKey || item.id;
+      if (
+        !this.sessionSeenIds.has(item.id) && !this.sessionSeenArtworks.has(artKey) && !feedSeen.has(item.id) && !seen.has(item.id)
+      ) {
         seen.add(item.id);
+        this.sessionSeenArtworks.add(artKey);
         this.sessionSeenIds.add(item.id);
         combined.push(item);
       }
     }
 
     if (combined.length < limit) {
-      const extraPage = pageB + page + 5;
+      const extraPage = base + 3;
       const fallback = await this.fetchSafebooru("", extraPage, limit);
       for (const item of fallback) {
-        if (!this.sessionSeenIds.has(item.id) && !seen.has(item.id)) {
+        if (!item || !item.id) continue;
+        const artKey = item.artworkKey || item.id;
+        if (
+          !this.sessionSeenIds.has(item.id) && !this.sessionSeenArtworks.has(artKey) && !feedSeen.has(item.id) && !seen.has(item.id)
+        ) {
           seen.add(item.id);
+        this.sessionSeenArtworks.add(artKey);
           this.sessionSeenIds.add(item.id);
           combined.push(item);
           if (combined.length >= limit) break;
@@ -465,13 +481,17 @@ export class PinService {
     if (combined.length === 0) {
       const emergency = await this.fetchSafebooru("", 1, limit);
       for (const item of emergency) {
-        if (!this.sessionSeenIds.has(item.id) && !seen.has(item.id)) {
+        if (!item || !item.id) continue;
+        const artKey = item.artworkKey || item.id;
+        if (!seen.has(item.id) && !seenArtworks.has(artKey)) {
           seen.add(item.id);
-          this.sessionSeenIds.add(item.id);
+        this.sessionSeenArtworks.add(artKey);
           combined.push(item);
         }
       }
     }
+
+    StorageUtils.addFeedSeenIds(combined.map((p) => p.id));
 
     return {
       pins: this.shuffle(combined),
@@ -482,7 +502,17 @@ export class PinService {
 
   async searchPins(query, page = 1, limit = API_CONFIG.defaultLimit) {
     const safebooruResults = await this.fetchSafebooru(query, page, limit);
-    const pins = this.shuffle(safebooruResults);
+    const seenArtworks = new Set();
+    const filtered = [];
+    for (const item of safebooruResults) {
+      if (!item || !item.id) continue;
+      const artKey = item.artworkKey || item.id;
+      if (!seenArtworks.has(artKey)) {
+        seenArtworks.add(artKey);
+        filtered.push(item);
+      }
+    }
+    const pins = this.shuffle(filtered);
 
     return {
       pins,
@@ -500,7 +530,17 @@ export class PinService {
     }
 
     const results = await this.fetchSafebooru(cleanTopic, page, limit);
-    const pins = this.shuffle(results);
+    const seenArtworks = new Set();
+    const filtered = [];
+    for (const item of results) {
+      if (!item || !item.id) continue;
+      const artKey = item.artworkKey || item.id;
+      if (!seenArtworks.has(artKey)) {
+        seenArtworks.add(artKey);
+        filtered.push(item);
+      }
+    }
+    const pins = this.shuffle(filtered);
 
     const result = {
       pins,
