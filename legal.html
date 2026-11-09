@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
-  <title>Legal &amp; Policies</title>
+  <title>Legal &amp; Policies | Lotus</title>
   
-  <link rel="stylesheet" href="./styles/variables.css?v=3.6">
-  <link rel="stylesheet" href="./styles/reset.css?v=3.6">
-  <link rel="stylesheet" href="./styles/layout.css?v=3.6">
-  <link rel="stylesheet" href="./styles/utilities.css?v=3.6">
-  <link rel="stylesheet" href="./styles/legal.css?v=3.6">
+  <link rel="stylesheet" href="./styles/variables.css?v=5.0">
+  <link rel="stylesheet" href="./styles/reset.css?v=5.0">
+  <link rel="stylesheet" href="./styles/layout.css?v=5.0">
+  <link rel="stylesheet" href="./styles/utilities.css?v=5.0">
+  <link rel="stylesheet" href="./styles/legal.css?v=5.0">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ec4899'%3E%3Cpath d='M12 2C12 2 8 8 8 13C8 15.2091 9.79086 17 12 17C14.2091 17 16 15.2091 16 13C16 8 12 2 12 2Z'/%3E%3Cpath d='M7.5 13C5.567 13 4 14.567 4 16.5C4 18.433 7.5 21 7.5 21C7.5 21 11 18.433 11 16.5C11 14.567 9.433 13 7.5 13Z' fill-opacity='0.8'/%3E%3Cpath d='M16.5 13C14.567 13 13 14.567 13 16.5C13 18.433 16.5 21 16.5 21C16.5 21 20 18.433 20 16.5C20 14.567 18.433 13 16.5 13Z' fill-opacity='0.8'/%3E%3C/svg%3E">
 </head>
 <body class="legal-page">
   <header class="legal-header">
-    <a href="./index.html" class="legal-back-btn" title="Back">
+    <a href="./index.html" class="legal-back-btn" title="Back to Lotus">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6"></polyline>
       </svg>
@@ -28,7 +28,7 @@
     <section class="legal-hero">
       <h1 class="legal-hero-title">Legal &amp; Policies</h1>
       <p class="legal-hero-desc">
-        Personal study project notice, client-side privacy, and third-party content disclaimer.
+        Personal study project notice, client-side privacy, data sovereignty, and third-party content disclaimer.
       </p>
       <span class="legal-hero-badge">Last updated: November 2026</span>
     </section>
@@ -80,19 +80,20 @@
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               </svg>
             </div>
-            <h2 class="legal-card-title">Privacy</h2>
+            <h2 class="legal-card-title">Privacy &amp; Data Transparency</h2>
           </div>
         </div>
 
         <div class="legal-card-body">
           <p>
-            No user accounts, database registrations, tracking pixels, or telemetry scripts are used.
+            Lotus is designed with a strict zero-telemetry and client-first privacy philosophy. No user accounts, passwords, database user records, tracking pixels, or third-party advertising cookies are ever used.
           </p>
 
           <ul class="legal-list">
-            <li><strong>Local Storage:</strong> Saved pins and recent queries are stored strictly in your browser (<code>localStorage</code>) on your own device.</li>
-            <li><strong>Network Privacy:</strong> External image requests use <code>no-referrer</code> policies to prevent transmitting navigation headers.</li>
-            <li><strong>Data Control:</strong> You can clear all locally saved data at any moment by resetting your browser site data.</li>
+            <li><strong>Local Storage:</strong> Saved pin collections, recent search tags, and viewed pins are stored strictly inside your own browser (<code>localStorage</code>) on your local device. This data never leaves your device unless you explicitly export it.</li>
+            <li><strong>Data Sovereignty &amp; Portability:</strong> You maintain 100% ownership over your data. Collections can be exported as lightweight, human-readable <code>.json</code> backup files or completely wiped at any moment via browser site data settings.</li>
+            <li><strong>Cloudflare D1 &amp; Edge Infrastructure:</strong> Lotus utilizes serverless Cloudflare Workers with an edge Cloudflare D1 SQL database strictly for technical caching: translating public community tag aliases, accelerating frequent search queries (<code>D1-HIT</code>), and rate-limit protection. <strong>Cloudflare D1 never stores user identity, personal records, IP logs, or user collections.</strong></li>
+            <li><strong>Network Privacy:</strong> All external media asset requests apply strict <code>no-referrer</code> policies to prevent transmitting navigation referrers to external image hosts.</li>
           </ul>
         </div>
       </article>
@@ -135,7 +136,7 @@
 
         <div class="legal-card-body">
           <p>
-            Artwork metadata is parsed to credit original creators. Whenever source information is available in the index, pin modals provide direct links to the author's original profiles (Pixiv, Twitter / X, ArtStation, DeviantArt, etc.) to drive discovery to their official pages.
+            Artwork metadata is parsed to credit original creators. Whenever source information is available in the index, pin modals provide direct links to the author's original profiles (Pixiv, Twitter / X, ArtStation, DeviantArt, Bluesky, etc.) to drive discovery to their official pages.
           </p>
         </div>
       </article>
@@ -173,6 +174,6 @@
     </footer>
   </main>
 
-  <script type="module" src="./modules/legal/legal.js?v=3.6"></script>
+  <script type="module" src="./modules/legal/legal.js?v=5.0"></script>
 </body>
 </html>
