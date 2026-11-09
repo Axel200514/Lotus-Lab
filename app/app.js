@@ -123,6 +123,11 @@ class LotusApp {
         onPinClick: (pin) => {
           const isSaved = this.savedService.isSaved(pin.id);
           this.modal.open(pin, isSaved);
+        },
+        onThresholdReach: () => {
+          if (this.savedList) {
+            this.savedList.loadMoreSavedPins();
+          }
         }
       }
     );
@@ -335,6 +340,12 @@ class LotusApp {
             this.fetchMorePins();
           }
         }
+        if (entry.isIntersecting && this.currentMode === "saved") {
+          if (this.modal && this.modal.isOpen) return;
+          if (this.savedList) {
+            this.savedList.loadMoreSavedPins();
+          }
+        }
       },
       {
         rootMargin: "800px 0px"
@@ -350,16 +361,22 @@ class LotusApp {
         if (scrollTimeout) return;
         scrollTimeout = setTimeout(() => {
           scrollTimeout = null;
-          const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
-          if (!isInfiniteScrollable || !this.hasMore) return;
           if (this.modal && this.modal.isOpen) return;
+          const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
           const scrollRemaining = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
-          if (scrollRemaining < 1000) {
-            if (this.isLoading) {
-              this.loader.show();
-              return;
+          if (isInfiniteScrollable && this.hasMore) {
+            if (scrollRemaining < 1000) {
+              if (this.isLoading) {
+                this.loader.show();
+                return;
+              }
+              this.fetchMorePins();
             }
-            this.fetchMorePins();
+          }
+          if (this.currentMode === "saved" && scrollRemaining < 1000) {
+            if (this.savedList) {
+              this.savedList.loadMoreSavedPins();
+            }
           }
         }, 120);
       },

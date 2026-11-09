@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.0";
-import { StorageUtils } from "../../utils/storage.utils.js?v=5.0";
-import { API_CONFIG } from "../../../../app/app.config.js?v=5.0";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.1";
+import { StorageUtils } from "../../utils/storage.utils.js?v=5.1";
+import { API_CONFIG } from "../../../../app/app.config.js?v=5.1";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
@@ -21,6 +21,9 @@ export class ModalComponent {
     this.relatedCols = [];
     this.colHeights = [];
     this.sentinelObserver = null;
+    this.relatedThresholdObserver = null;
+    this.pendingRelatedPrefetch = false;
+    this.renderedRelatedPins = [];
 
     this.backdrop = document.getElementById("pin-modal");
     this.wrap = document.getElementById("modal-content-wrap");
@@ -146,8 +149,14 @@ export class ModalComponent {
     this.sentinelObserver = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry && entry.isIntersecting && this.isOpen && !this.isLoadingRelated && this.hasMoreRelated) {
-          this.loadNextRelatedBatch();
+        if (entry && entry.isIntersecting && this.isOpen && this.hasMoreRelated) {
+          if (this.isLoadingRelated) {
+            if (this.relatedLoader) {
+              this.relatedLoader.classList.remove("d-none");
+            }
+            return;
+          }
+          this.loadNextRelatedBatch(false);
         }
       },
       {
@@ -347,6 +356,12 @@ export class ModalComponent {
 
     this.relatedPage = 1;
     this.hasMoreRelated = true;
+    this.renderedRelatedPins = [];
+    this.pendingRelatedPrefetch = false;
+    if (this.relatedThresholdObserver) {
+      this.relatedThresholdObserver.disconnect();
+      this.relatedThresholdObserver = null;
+    }
     this.loadRelatedPins(pin, true);
     this.resetModalScroll();
   }
@@ -368,11 +383,55 @@ export class ModalComponent {
     return this.relatedCols;
   }
 
-  async loadNextRelatedBatch() {
+  setupRelatedThresholdObserver() {
+    if (this.relatedThresholdObserver) {
+      this.relatedThresholdObserver.disconnect();
+      this.relatedThresholdObserver = null;
+    }
+
+    if (!this.hasMoreRelated || this.renderedRelatedPins.length === 0) return;
+    if (!("IntersectionObserver" in window)) return;
+
+    const targetIndex = this.renderedRelatedPins.length >= 5
+      ? this.renderedRelatedPins.length - 4
+      : -1;
+
+    if (targetIndex < 0) return;
+    const targetPin = this.renderedRelatedPins[targetIndex];
+    if (!targetPin || !targetPin.id) return;
+
+    const targetCard = this.relatedGrid ? this.relatedGrid.querySelector(`.modal-related-card[data-id="${targetPin.id}"]`) : null;
+    if (!targetCard) return;
+
+    this.relatedThresholdObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          if (this.relatedThresholdObserver) {
+            this.relatedThresholdObserver.disconnect();
+            this.relatedThresholdObserver = null;
+          }
+          if (this.isLoadingRelated) {
+            this.pendingRelatedPrefetch = true;
+            return;
+          }
+          this.loadNextRelatedBatch(true);
+        }
+      },
+      {
+        root: this.backdrop,
+        rootMargin: "0px"
+      }
+    );
+
+    this.relatedThresholdObserver.observe(targetCard);
+  }
+
+  async loadNextRelatedBatch(isSilent = false) {
     if (!this.activePin || this.isLoadingRelated || !this.hasMoreRelated) return;
     this.isLoadingRelated = true;
     this.relatedPage += 1;
-    await this.loadRelatedPins(this.activePin, false);
+    await this.loadRelatedPins(this.activePin, false, isSilent);
   }
 
   renderRelatedPinsBatch(pins) {
@@ -391,6 +450,9 @@ export class ModalComponent {
         img = document.createElement("img");
         img.className = "modal-related-img";
         card.appendChild(img);
+      }
+      if (card && relPin.id) {
+        card.dataset.id = relPin.id;
       }
 
       const rawRatio = relPin.height && relPin.width ? relPin.height / relPin.width : 1.333;
@@ -425,13 +487,16 @@ export class ModalComponent {
     this.relatedCols.forEach((col, idx) => {
       col.appendChild(frags[idx]);
     });
+    this.renderedRelatedPins.push(...pins);
+    this.setupRelatedThresholdObserver();
   }
 
-  async loadRelatedPins(pin, isInitial = true) {
+  async loadRelatedPins(pin, isInitial = true, isSilent = false) {
     if (!this.relatedGrid) return;
     if (isInitial) {
       this.setupRelatedColumns();
       this.renderedRelatedIds.clear();
+      this.renderedRelatedPins = [];
 
       if (this.relatedCache.has(pin.id)) {
         const cached = this.relatedCache.get(pin.id);
@@ -461,7 +526,7 @@ export class ModalComponent {
 
     if (typeof this.fetchRelatedPins !== "function") return;
     this.isLoadingRelated = true;
-    if (this.relatedLoader) {
+    if (!isSilent && this.relatedLoader) {
       this.relatedLoader.classList.remove("d-none");
     }
 
@@ -518,6 +583,12 @@ export class ModalComponent {
       if (this.relatedLoader) {
         this.relatedLoader.classList.add("d-none");
       }
+      if (this.pendingRelatedPrefetch) {
+        this.pendingRelatedPrefetch = false;
+        if (this.hasMoreRelated) {
+          this.loadNextRelatedBatch(true);
+        }
+      }
     }
   }
 
@@ -550,6 +621,12 @@ export class ModalComponent {
     document.body.classList.remove("modal-open");
     this.activePin = null;
     this.pinStack = [];
+    if (this.relatedThresholdObserver) {
+      this.relatedThresholdObserver.disconnect();
+      this.relatedThresholdObserver = null;
+    }
+    this.pendingRelatedPrefetch = false;
+    this.renderedRelatedPins = [];
     this.renderedRelatedIds.clear();
     this.relatedCache.clear();
     this.resetModalScroll();
@@ -576,6 +653,12 @@ export class ModalComponent {
     document.body.classList.remove("modal-open");
     this.activePin = null;
     this.pinStack = [];
+    if (this.relatedThresholdObserver) {
+      this.relatedThresholdObserver.disconnect();
+      this.relatedThresholdObserver = null;
+    }
+    this.pendingRelatedPrefetch = false;
+    this.renderedRelatedPins = [];
     this.renderedRelatedIds.clear();
     this.relatedCache.clear();
     this.resetModalScroll();

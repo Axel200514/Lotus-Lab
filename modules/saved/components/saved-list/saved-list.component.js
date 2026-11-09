@@ -1,4 +1,4 @@
-import { showToast } from "../../../shared/utils/ui.utils.js?v=5.0";
+import { showToast } from "../../../shared/utils/ui.utils.js?v=5.1";
 
 export class SavedListComponent {
   constructor(pinListComponent, savedService, loaderComponent, onExploreClick) {
@@ -10,6 +10,8 @@ export class SavedListComponent {
     this.importBtn = document.getElementById("saved-import-btn");
     this.exportBtn = document.getElementById("saved-export-btn");
     this.fileInput = document.getElementById("saved-import-input");
+    this.pageSize = 24;
+    this.allSavedPins = [];
     this.initActions();
   }
 
@@ -124,10 +126,10 @@ export class SavedListComponent {
 
   render() {
     this.pinListComponent.clear();
-    const saved = this.savedService.getSavedPins();
-    this.updateCount(saved.length);
+    this.allSavedPins = this.savedService.getSavedPins();
+    this.updateCount(this.allSavedPins.length);
 
-    if (saved.length === 0) {
+    if (this.allSavedPins.length === 0) {
       this.loaderComponent.hide();
       this.renderSavedEmpty();
       return;
@@ -135,16 +137,33 @@ export class SavedListComponent {
 
     this.loaderComponent.hideEmpty();
     this.loaderComponent.hide();
-    this.pinListComponent.renderPins(saved);
+    const initialBatch = this.allSavedPins.slice(0, this.pageSize);
+    this.pinListComponent.renderPins(initialBatch);
+  }
+
+  loadMoreSavedPins() {
+    const total = this.allSavedPins.length;
+    const currentCount = this.pinListComponent.renderedPins.length;
+    if (currentCount >= total) return;
+
+    const nextBatch = this.allSavedPins.slice(currentCount, currentCount + this.pageSize);
+    if (nextBatch.length > 0) {
+      this.pinListComponent.renderPins(nextBatch);
+    }
   }
 
   removePin(pinId) {
     if (!pinId) return;
+    this.allSavedPins = this.allSavedPins.filter((p) => p.id !== pinId);
     this.pinListComponent.removePin(pinId);
-    const saved = this.savedService.getSavedPins();
-    this.updateCount(saved.length);
+    this.updateCount(this.allSavedPins.length);
     if (this.pinListComponent.renderedPins.length === 0) {
-      this.renderSavedEmpty();
+      if (this.allSavedPins.length > 0) {
+        const nextBatch = this.allSavedPins.slice(0, this.pageSize);
+        this.pinListComponent.renderPins(nextBatch);
+      } else {
+        this.renderSavedEmpty();
+      }
     }
   }
 
