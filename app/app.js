@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=5.0";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.0";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.0";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.0";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.0";
-import { PinService } from "../modules/pins/services/pin.service.js?v=5.0";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=5.0";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.0";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.0";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.0";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.0";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.0";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.0";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.0";
+import { AppRouter } from "./app.routes.js?v=5.1";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.1";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.1";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.1";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.1";
+import { PinService } from "../modules/pins/services/pin.service.js?v=5.1";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=5.1";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.1";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.1";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.1";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.1";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.1";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.1";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.1";
 
 const FALLBACK_TAGS = [
   { label: "Genshin Impact", query: "genshin_impact" },
@@ -61,6 +61,7 @@ class LotusApp {
     this.hasMore = true;
     this.fetchSeq = 0;
     this.hasRenderedExplore = false;
+    this.pendingPrefetch = false;
 
     this.gridContainer = document.getElementById("pins-grid");
     this.savedGridContainer = document.getElementById("saved-grid");
@@ -77,6 +78,7 @@ class LotusApp {
     this.ptrIndicator = document.getElementById("pull-to-refresh");
     this.ptrIcon = this.ptrIndicator ? this.ptrIndicator.querySelector(".ptr-icon") : null;
 
+    this.pendingPrefetch = false;
     this.feedScrollPosition = 0;
     this.feedPage = 1;
     this.feedHasMore = true;
@@ -108,7 +110,8 @@ class LotusApp {
         onPinClick: (pin) => {
           const isSaved = this.savedService.isSaved(pin.id);
           this.modal.open(pin, isSaved);
-        }
+        },
+        onThresholdReach: () => this.handleThresholdPrefetch()
       }
     );
 
@@ -304,6 +307,17 @@ class LotusApp {
     } catch {}
   }
 
+  handleThresholdPrefetch() {
+    const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
+    if (!isInfiniteScrollable || !this.hasMore) return;
+    if (this.modal && this.modal.isOpen) return;
+    if (this.isLoading) {
+      this.pendingPrefetch = true;
+      return;
+    }
+    this.fetchMorePins(false, true);
+  }
+
   initIntersectionObserver() {
     if (!("IntersectionObserver" in window) || !this.sentinel) return;
 
@@ -311,9 +325,15 @@ class LotusApp {
       (entries) => {
         const entry = entries[0];
         const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
-        if (entry.isIntersecting && !this.isLoading && this.hasMore && isInfiniteScrollable) {
+        if (entry.isIntersecting && isInfiniteScrollable) {
           if (this.modal && this.modal.isOpen) return;
-          this.fetchMorePins();
+          if (this.isLoading) {
+            this.loader.show();
+            return;
+          }
+          if (this.hasMore) {
+            this.fetchMorePins();
+          }
         }
       },
       {
@@ -331,10 +351,14 @@ class LotusApp {
         scrollTimeout = setTimeout(() => {
           scrollTimeout = null;
           const isInfiniteScrollable = this.currentMode === "feed" || this.currentMode === "topic" || this.currentMode === "search";
-          if (!isInfiniteScrollable || this.isLoading || !this.hasMore) return;
+          if (!isInfiniteScrollable || !this.hasMore) return;
           if (this.modal && this.modal.isOpen) return;
           const scrollRemaining = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
           if (scrollRemaining < 1000) {
+            if (this.isLoading) {
+              this.loader.show();
+              return;
+            }
             this.fetchMorePins();
           }
         }, 120);
@@ -437,6 +461,7 @@ class LotusApp {
     }
 
     if (this.currentMode === "topic") {
+      this.pendingPrefetch = false;
       this.pinList.clear();
       this.pinService.resetTopicSession();
       await this.fetchMorePins(true);
@@ -444,6 +469,7 @@ class LotusApp {
     }
 
     if (this.currentMode === "search") {
+      this.pendingPrefetch = false;
       this.pinList.clear();
       this.pinService.resetSearchSession();
       await this.fetchMorePins(true);
@@ -498,6 +524,7 @@ class LotusApp {
       return;
     }
 
+    this.pendingPrefetch = false;
     this.currentMode = "feed";
     this.currentQuery = "";
     this.currentPage = 1;
@@ -527,6 +554,7 @@ class LotusApp {
       return;
     }
 
+    this.pendingPrefetch = false;
     this.isFeedActive = false;
     this.currentQuery = topic;
     this.currentMode = "topic";
@@ -593,6 +621,7 @@ class LotusApp {
       return;
     }
 
+    this.pendingPrefetch = false;
     this.isFeedActive = false;
     this.currentQuery = query;
     this.currentMode = "search";
@@ -627,6 +656,7 @@ class LotusApp {
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
     this.setSavedViewVisible(false);
     this.setExploreViewVisible(true);
+    this.pendingPrefetch = false;
     this.currentMode = "explore";
     this.hasMore = false;
     this.loader.hideEnd();
@@ -664,6 +694,7 @@ class LotusApp {
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
     this.setSavedViewVisible(true);
+    this.pendingPrefetch = false;
     this.currentMode = "saved";
     this.hasMore = false;
     this.loader.hide();
@@ -750,12 +781,14 @@ class LotusApp {
     this.router.navigate(`search=${encodeURIComponent(clean)}`);
   }
 
-  async fetchMorePins(reset = false) {
+  async fetchMorePins(reset = false, isSilent = false) {
     if (this.isLoading && !reset) return;
     if (!this.hasMore && !reset) return;
 
     this.isLoading = true;
-    this.loader.show();
+    if (!isSilent) {
+      this.loader.show();
+    }
     this.loader.hideEmpty();
 
     this.fetchSeq += 1;
@@ -849,6 +882,13 @@ class LotusApp {
       if (currentSeq === this.fetchSeq) {
         this.isLoading = false;
         this.loader.hide();
+        if (this.pendingPrefetch) {
+          this.pendingPrefetch = false;
+          if (this.hasMore) {
+            this.fetchMorePins(false, true);
+            return;
+          }
+        }
         if (this.hasMore && this.sentinel) {
           const rect = this.sentinel.getBoundingClientRect();
           if (rect.top <= window.innerHeight + 800) {

@@ -1,5 +1,5 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=5.0";
-import { PinCardComponent } from "../pin-card/pin-card.component.js?v=5.0";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=5.1";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=5.1";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
@@ -11,6 +11,7 @@ export class PinListComponent {
     this.columns = [];
     this.columnHeights = [];
     this.renderedPins = [];
+    this.thresholdObserver = null;
     this.initColumns();
   }
 
@@ -38,8 +39,19 @@ export class PinListComponent {
   }
 
   clear() {
+    if (this.thresholdObserver) {
+      this.thresholdObserver.disconnect();
+      this.thresholdObserver = null;
+    }
     this.initColumns();
     this.renderedPins = [];
+  }
+
+  destroy() {
+    if (this.thresholdObserver) {
+      this.thresholdObserver.disconnect();
+      this.thresholdObserver = null;
+    }
   }
 
   removePin(pinId) {
@@ -55,9 +67,51 @@ export class PinListComponent {
     const needed = this.getOptimalColumnCount();
     if (needed !== this.columns.length) {
       const pinsToReRender = [...this.renderedPins];
-      this.initColumns();
+      this.clear();
       this.renderPins(pinsToReRender);
     }
+  }
+
+  setupThresholdObserver() {
+    if (this.thresholdObserver) {
+      this.thresholdObserver.disconnect();
+      this.thresholdObserver = null;
+    }
+
+    if (typeof this.callbacks.onThresholdReach !== "function") return;
+    if (this.renderedPins.length === 0) return;
+
+    const targetIndex = this.renderedPins.length >= 15
+      ? this.renderedPins.length - 10
+      : -1;
+
+    if (targetIndex < 0) return;
+
+    const targetPin = this.renderedPins[targetIndex];
+    if (!targetPin || !targetPin.id) return;
+
+    const targetCard = this.container.querySelector(`.pin-card[data-id="${targetPin.id}"]`);
+    if (!targetCard) return;
+
+    if (!("IntersectionObserver" in window)) return;
+
+    this.thresholdObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          if (this.thresholdObserver) {
+            this.thresholdObserver.disconnect();
+            this.thresholdObserver = null;
+          }
+          this.callbacks.onThresholdReach();
+        }
+      },
+      {
+        rootMargin: "0px"
+      }
+    );
+
+    this.thresholdObserver.observe(targetCard);
   }
 
   renderPins(pins = []) {
@@ -113,5 +167,7 @@ export class PinListComponent {
     this.columns.forEach((col, idx) => {
       col.appendChild(colFragments[idx]);
     });
+
+    this.setupThresholdObserver();
   }
 }
