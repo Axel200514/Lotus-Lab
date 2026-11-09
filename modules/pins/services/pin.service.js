@@ -1,6 +1,6 @@
 import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
 import { PinModel } from "../../shared/models/pin.model.js?v=5.0";
-import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=5.0";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.0";
 
 export class PinService {
   constructor() {
@@ -245,7 +245,7 @@ export class PinService {
       for (const tag of rawTags) {
         const cleanTag = (tag || "").trim().toLowerCase();
         if (!cleanTag || cleanTag.length < 3 || cleanTag === cleanCurrent) continue;
-        if (ATTR_REGEX.test(cleanTag)) continue;
+        if (!isCharacterTag(cleanTag)) continue;
 
         let matches = 0;
         for (const token of tokens) {
@@ -693,7 +693,7 @@ export class PinService {
   determinePinAnchors(pin) {
     const cleanTags = (pin.tags || [])
       .map((t) => (typeof t === "object" && t.query ? t.query : t || "").trim().toLowerCase().replace(/\s+/g, "_"))
-      .filter((t) => t.length > 2 && !/^\d/.test(t) && !t.startsWith("&") && !ATTR_REGEX.test(t));
+      .filter(isCharacterTag);
 
     const characterTags = [];
     const seriesTags = [];
@@ -701,7 +701,7 @@ export class PinService {
 
     if (pin.character) {
       const c = pin.character.trim().toLowerCase().replace(/\s+/g, "_");
-      if (c.length > 2 && !ATTR_REGEX.test(c)) {
+      if (isCharacterTag(c)) {
         characterTags.push(c);
       }
     }
@@ -715,11 +715,11 @@ export class PinService {
     if (titleMatch) {
       const c = titleMatch[1].trim().toLowerCase().replace(/\s+/g, "_");
       const s = titleMatch[2].trim().toLowerCase().replace(/\s+/g, "_");
-      if (c.length > 2 && !ATTR_REGEX.test(c) && !characterTags.includes(c)) characterTags.push(c);
-      if (s.length > 2 && !ATTR_REGEX.test(s) && !seriesTags.includes(s)) seriesTags.push(s);
+      if (isCharacterTag(c) && !characterTags.includes(c)) characterTags.push(c);
+      if (isCharacterTag(s) && !seriesTags.includes(s)) seriesTags.push(s);
     } else if (titleNormalized && !titleNormalized.includes("Illustration") && !titleNormalized.includes("Digital Artist")) {
       const c = titleNormalized.toLowerCase().replace(/\s+/g, "_");
-      if (c.length > 2 && !ATTR_REGEX.test(c) && !characterTags.includes(c)) {
+      if (isCharacterTag(c) && !characterTags.includes(c)) {
         characterTags.push(c);
       }
     }
@@ -748,7 +748,7 @@ export class PinService {
       !pin.author.includes("Artista Visual")
     ) {
       const cleanArtist = pin.author.replace(/^@/, "").trim().toLowerCase();
-      if (cleanArtist && cleanArtist !== "pixiv" && cleanArtist !== "danbooru" && !ATTR_REGEX.test(cleanArtist)) {
+      if (cleanArtist && cleanArtist !== "pixiv" && cleanArtist !== "danbooru" && isCharacterTag(cleanArtist)) {
         primaryArtist = cleanArtist;
       }
     }

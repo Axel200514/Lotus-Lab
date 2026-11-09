@@ -5,15 +5,21 @@ const IDEAS_CACHE_KEY = "lotus_ideas_cache_v22";
 const FEED_SEEN_KEY = "lotus_feed_seen_ids";
 
 export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
+export const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room|series)\)$/i;
+
+export const isCharacterTag = (tag) => {
+  if (!tag || typeof tag !== 'string') return false;
+  const clean = tag.trim().toLowerCase();
+  if (clean.length < 3 || /^\d/.test(clean) || clean.startsWith('&')) return false;
+  if (ATTR_REGEX.test(clean)) return false;
+  if (NON_CHARACTER_SUFFIX_REGEX.test(clean)) return false;
+  if (/^\(?series\)?$/i.test(clean)) return false;
+  return true;
+};
 
 export class StorageUtils {
-  static isThematicTag(tag, dynamicKnownTags = null) {
-    if (!tag || typeof tag !== "string") return false;
-    const clean = tag.trim().toLowerCase();
-    if (clean.length < 3 || /^\d/.test(clean)) return false;
-    if (ATTR_REGEX.test(clean)) return false;
-    if (/^(series|game|anime|manga|novel|cosplay|style|medium)$/i.test(clean)) return false;
-    return true;
+  static isThematicTag(tag) {
+    return isCharacterTag(tag);
   }
 
   static getSavedPins() {

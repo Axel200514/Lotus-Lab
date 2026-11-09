@@ -1,5 +1,4 @@
-const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|bob_cut|pixie_cut|haircut|hairstyle|hairband|headband|meme)(?:_|$)/i;
-const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room|series)\)$/i;
+import { isCharacterTag } from "../utils/storage.utils.js?v=5.0";
 
 const decodeHtmlEntities = (str) => {
   if (typeof str !== "string" || !str.includes("&")) return str || "";
@@ -10,10 +9,6 @@ const decodeHtmlEntities = (str) => {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
-};
-
-const isCleanName = (tag) => {
-  return tag.length > 2 && !/^\d/.test(tag) && !tag.startsWith("&") && !ATTR_REGEX.test(tag) && !/^\(?series\)?$/i.test(tag);
 };
 
 const isSafeHttpUrl = (url) => {
@@ -105,14 +100,14 @@ export class PinModel {
       .map((t) => t.trim())
       .filter((t) => t.length > 1);
 
-    const filteredTags = rawTags.filter(isCleanName);
+    const filteredTags = rawTags.filter(isCharacterTag);
 
     let characterTag = item.character ? decodeHtmlEntities(item.character) : "";
     if (!characterTag) {
       characterTag =
-        filteredTags.find((t) => t.includes("(") && t.includes(")") && !NON_CHARACTER_SUFFIX_REGEX.test(t)) ||
+        filteredTags.find((t) => t.includes("(") && t.includes(")")) ||
         filteredTags.find((t) => /^(princess|queen|king|lord|lady)_/i.test(t)) ||
-        filteredTags.find((t) => t.includes("_") && !t.includes(":") && t !== "triforce" && !ATTR_REGEX.test(t)) ||
+        filteredTags.find((t) => t.includes("_") && !t.includes(":") && t !== "triforce") ||
         filteredTags[0] ||
         "Anime Art";
     }

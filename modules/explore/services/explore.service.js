@@ -1,5 +1,5 @@
 import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
-import { StorageUtils, ATTR_REGEX } from "../../shared/utils/storage.utils.js?v=5.0";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.0";
 
 const CACHE_KEY = "lotus_explore_cache_v24";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
@@ -174,7 +174,7 @@ export class ExploreService {
     savedPins.forEach((p) => {
       if (p.title) {
         const titleTag = p.title.trim().toLowerCase().replace(/\s+/g, "_");
-        if (titleTag && titleTag.length > 2 && !ATTR_REGEX.test(titleTag) && !/^\d/.test(titleTag) && !/^\(?series\)?$/i.test(titleTag)) {
+        if (isCharacterTag(titleTag)) {
           tagOccurrences.set(titleTag, (tagOccurrences.get(titleTag) || 0) + 2);
         }
       }
@@ -183,7 +183,7 @@ export class ExploreService {
           const raw = typeof t === "string" ? t : t.query || t.label;
           if (!raw) return;
           const clean = raw.trim().toLowerCase();
-          if (clean.length > 2 && !/^\d/.test(clean) && !ATTR_REGEX.test(clean) && !/^\(?series\)?$/i.test(clean)) {
+          if (isCharacterTag(clean)) {
             tagOccurrences.set(clean, (tagOccurrences.get(clean) || 0) + 1);
           }
         });
@@ -199,11 +199,11 @@ export class ExploreService {
       ...(exploreData.popularSections || []).map((s) => (s.tag || "").toLowerCase()),
       ...recentSearches
         .map((s) => (s || "").trim().toLowerCase().replace(/\s+/g, "_"))
-        .filter((s) => s.length > 2 && !ATTR_REGEX.test(s) && !/^\d/.test(s)),
+        .filter(isCharacterTag),
       ...savedPins.flatMap((p) => [
         (p.title || "").trim().toLowerCase().replace(/\s+/g, "_"),
         ...(Array.isArray(p.tags) ? p.tags.map((t) => (typeof t === "string" ? t : t.query || t.label || "").trim().toLowerCase().replace(/\s+/g, "_")) : [])
-      ]).filter((t) => t.length > 2 && !ATTR_REGEX.test(t) && !/^\d/.test(t)),
+      ]).filter(isCharacterTag),
       ...recurringTags
     ]);
     const userTasteTags = StorageUtils.getUserTasteTags(dynamicKnownTags);
@@ -443,7 +443,7 @@ export class ExploreService {
     const addCand = (rawTag) => {
       if (!rawTag || typeof rawTag !== "string") return;
       const clean = rawTag.trim().toLowerCase().replace(/\s+/g, "_");
-      if (clean.length < 3 || /^\d/.test(clean) || ATTR_REGEX.test(clean)) return;
+      if (!isCharacterTag(clean)) return;
       const norm = this.normalizeTopicKey(clean);
       if (existingBoardKeys.has(norm) || seenSectionKeys.has(norm) || seen.has(norm)) return;
       seen.add(norm);
