@@ -271,7 +271,7 @@ export class PinService {
     return sorted[0] ? sorted[0][0] : null;
   }
 
-  async executeSafebooruFetch(tag, page = 1, limit = API_CONFIG.defaultLimit, retryCount = 1, signal = null) {
+  async executeSafebooruFetch(tag, page = 1, limit = API_CONFIG.defaultLimit, retryCount = 2, signal = null) {
     const cleanTag = (tag || "").trim();
     const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(cleanTag)}&page=${page}&limit=${limit}`;
     for (let attempt = 0; attempt <= retryCount; attempt++) {
@@ -420,8 +420,6 @@ export class PinService {
         }
       }
     }
-
-    StorageUtils.addFeedSeenIds(combined.map((p) => p.id));
 
     return {
       pins: this.shuffle(combined),

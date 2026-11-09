@@ -1,5 +1,6 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=5.1";
-import { PinCardComponent } from "../pin-card/pin-card.component.js?v=5.1";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=5.4";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=5.4";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.4";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
@@ -167,6 +168,8 @@ export class PinListComponent {
     this.columns.forEach((col, idx) => {
       col.appendChild(colFragments[idx]);
     });
+
+    StorageUtils.addFeedSeenIds(pins.filter((p) => p && p.id).map((p) => p.id));
 
     this.setupThresholdObserver();
   }
