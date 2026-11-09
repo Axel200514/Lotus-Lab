@@ -485,32 +485,170 @@ body.modal-open {
 
 .toast-notification {
   position: fixed;
-  bottom: 84px;
+  bottom: 88px;
   left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background-color: rgba(22, 24, 29, 0.95);
+  transform: translateX(-50%) translateY(28px) scale(0.9);
+  background: rgba(18, 20, 26, 0.95);
   color: #ffffff;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  padding: 10px 20px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 0;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
   z-index: 9999;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  backdrop-filter: blur(8px);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  max-width: calc(100vw - 32px);
 }
 
 .toast-notification.show {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.toast-notification:active {
+  transform: translateX(-50%) translateY(0) scale(0.96);
+  transition: transform 100ms ease;
+}
+
+.toast-notification::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  transform: translateX(-100%);
+  animation: toast-shimmer 750ms cubic-bezier(0.16, 1, 0.3, 1) 80ms 1 forwards;
+  pointer-events: none;
+}
+
+@keyframes toast-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.toast-notification.toast-success {
+  background: linear-gradient(135deg, rgba(24, 26, 34, 0.96), rgba(38, 20, 42, 0.96));
+  border-color: rgba(236, 72, 153, 0.55);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(236, 72, 153, 0.28);
+}
+
+.toast-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 12px;
+}
+
+.toast-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: toast-icon-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toast-icon-badge.success {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(219, 39, 119, 0.18));
+  border-color: rgba(236, 72, 153, 0.5);
+  color: #f472b6;
+}
+
+@keyframes toast-icon-pop {
+  0% { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+  70% { transform: scale(1.18) rotate(6deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.toast-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toast-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.toast-subtitle {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 4px 6px;
+  margin-left: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 140ms ease, transform 140ms ease;
+}
+
+.toast-close-btn:hover {
+  color: #ffffff;
+  transform: scale(1.15);
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ec4899, #f472b6);
+  transform-origin: left;
+  animation: toast-drain linear forwards;
+}
+
+.toast-notification:hover .toast-progress-bar {
+  animation-play-state: paused;
+}
+
+@keyframes toast-drain {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
 }
 
 @media (min-width: 769px) {
   .toast-notification {
-    bottom: 32px;
+    bottom: 84px;
   }
 }
 
