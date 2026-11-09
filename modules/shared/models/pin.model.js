@@ -24,6 +24,7 @@ export class PinModel {
     this.source = isSafeHttpUrl(data.source) ? data.source.trim() : this.fullUrl;
     this.sourceDomain = data.sourceDomain || "pixiv.net";
     this.createdAt = data.createdAt || new Date().toISOString();
+    this.artworkKey = data.artworkKey || `sb_${this.id}`;
   }
 
   static fromSafebooru(item) {
@@ -129,8 +130,28 @@ export class PinModel {
       }
     }
 
+    let artworkKey = "";
+    if (src.includes("pixiv.net") || src.includes("pximg.net")) {
+      const pm = src.match(/(?:artworks\/|illust_id=|\/|_)(\d{6,12})(?:_p|\.|$)/);
+      if (pm && pm[1]) {
+        artworkKey = `pixiv_${pm[1]}`;
+      }
+    } else if (src.includes("twitter.com/") || src.includes("x.com/")) {
+      const tm = src.match(/(?:twitter\.com|x\.com)\/[^/]+\/status\/(\d+)/i);
+      if (tm && tm[1]) {
+        artworkKey = `x_${tm[1]}`;
+      }
+    }
+    if (!artworkKey && item.hash) {
+      artworkKey = `hash_${item.hash}`;
+    }
+    if (!artworkKey) {
+      artworkKey = `sb_${item.id}`;
+    }
+
     return new PinModel({
       id: `sb_${item.id}`,
+      artworkKey,
       title: cleanTitle,
       previewUrl: preview,
       fullUrl: full,

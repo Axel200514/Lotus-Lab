@@ -2,6 +2,7 @@ const STORAGE_KEY = "lotus_saved_pins";
 const RECENT_SEARCHES_KEY = "lotus_recent_searches";
 const VIEWED_PINS_KEY = "lotus_viewed_pins_history";
 const IDEAS_CACHE_KEY = "lotus_ideas_cache_v22";
+const FEED_SEEN_KEY = "lotus_feed_seen_ids";
 
 export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text)(?:_|$)/i;
 
@@ -125,6 +126,29 @@ export class StorageUtils {
       localStorage.removeItem("lotus_ideas_cache_v16");
       localStorage.removeItem("lotus_ideas_cache_v15");
       localStorage.removeItem("lotus_ideas_for_you_cache");
+    } catch {}
+  }
+
+  static getFeedSeenIds() {
+    try {
+      const raw = localStorage.getItem(FEED_SEEN_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(list) ? list : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  static addFeedSeenIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    try {
+      const current = this.getFeedSeenIds();
+      ids.forEach((id) => {
+        if (id) current.add(String(id));
+      });
+      const arr = Array.from(current);
+      const capped = arr.slice(-500);
+      localStorage.setItem(FEED_SEEN_KEY, JSON.stringify(capped));
     } catch {}
   }
 
