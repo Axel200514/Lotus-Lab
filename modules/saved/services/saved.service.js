@@ -119,7 +119,8 @@ export class SavedService {
     const dateStr = new Date().toISOString().slice(0, 10);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `lotus-collection-${dateStr}.json`;
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    a.download = `lotus-collection-${dateStr}-${randomSuffix}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
