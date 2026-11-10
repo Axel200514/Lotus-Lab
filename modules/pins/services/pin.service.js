@@ -359,25 +359,15 @@ export class PinService {
     return null;
   }
 
-  async getFeedPins(page = 1, limit = API_CONFIG.defaultLimit) {
-    const half = Math.max(6, Math.floor(limit / 2));
-    const base = (page - 1) * 2 + this.sessionOffset;
-    const pageA = base + 1;
-    const pageB = base + 2;
-
-    const [batchA, batchB] = await Promise.allSettled([
-      this.fetchSafebooru("", pageA, half),
-      this.fetchSafebooru("", pageB, limit - half)
-    ]);
-
-    const listA = batchA.status === "fulfilled" ? batchA.value : [];
-    const listB = batchB.status === "fulfilled" ? batchB.value : [];
+  async getFeedPins(page = 1, limit = API_CONFIG.defaultLimit, signal = null) {
+    const targetPage = page + this.sessionOffset;
+    const list = await this.fetchSafebooru("", targetPage, limit, signal);
     const seen = new Set();
     const seenArtworks = new Set();
     const combined = [];
     const feedSeen = StorageUtils.getFeedSeenIds();
 
-    for (const item of [...listA, ...listB]) {
+    for (const item of list) {
       if (!item || !item.id) continue;
       const artKey = item.artworkKey || item.id;
       if (
@@ -391,8 +381,7 @@ export class PinService {
     }
 
     if (combined.length < limit) {
-      const extraPage = base + 3;
-      const fallback = await this.fetchSafebooru("", extraPage, limit);
+      const fallback = await this.fetchSafebooru("", targetPage + 1, limit, signal);
       for (const item of fallback) {
         if (!item || !item.id) continue;
         const artKey = item.artworkKey || item.id;
@@ -400,7 +389,7 @@ export class PinService {
           !this.sessionSeenIds.has(item.id) && !this.sessionSeenArtworks.has(artKey) && !feedSeen.has(item.id) && !seen.has(item.id)
         ) {
           seen.add(item.id);
-        this.sessionSeenArtworks.add(artKey);
+          this.sessionSeenArtworks.add(artKey);
           this.sessionSeenIds.add(item.id);
           combined.push(item);
           if (combined.length >= limit) break;
@@ -409,13 +398,13 @@ export class PinService {
     }
 
     if (combined.length === 0) {
-      const emergency = await this.fetchSafebooru("", 1, limit);
+      const emergency = await this.fetchSafebooru("", 1, limit, signal);
       for (const item of emergency) {
         if (!item || !item.id) continue;
         const artKey = item.artworkKey || item.id;
         if (!seen.has(item.id) && !seenArtworks.has(artKey)) {
           seen.add(item.id);
-        this.sessionSeenArtworks.add(artKey);
+          this.sessionSeenArtworks.add(artKey);
           combined.push(item);
         }
       }
