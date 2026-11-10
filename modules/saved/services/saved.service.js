@@ -1,5 +1,5 @@
-import { StorageUtils } from "../../shared/utils/storage.utils.js?v=5.0";
-import { PinModel } from "../../shared/models/pin.model.js?v=5.0";
+import { StorageUtils } from "../../shared/utils/storage.utils.js?v=5.4";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.4";
 
 export class SavedService {
   getSavedPins() {
@@ -117,9 +117,9 @@ export class SavedService {
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const dateStr = new Date().toISOString().slice(0, 10);
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
     const a = document.createElement("a");
     a.href = url;
-    const randomSuffix = Math.random().toString(36).substring(2, 6);
     a.download = `lotus-collection-${dateStr}-${randomSuffix}.json`;
     document.body.appendChild(a);
     a.click();
