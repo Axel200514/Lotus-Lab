@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "./app.config.js?v=5.0";
+import { APP_ROUTES } from "./app.config.js?v=5.4";
 
 export class AppRouter {
   constructor(routes = {}) {
@@ -37,11 +37,10 @@ export class AppRouter {
     }
 
     if (rawHash.startsWith("topic=")) {
-      history.replaceState(null, document.title, window.location.pathname + window.location.search);
-      const route = APP_ROUTES.home;
-      this.currentRoute = route;
-      if (typeof this.routes[route] === "function") {
-        this.routes[route]();
+      const topic = decodeURIComponent(rawHash.slice(6));
+      this.currentRoute = "home-topic";
+      if (typeof this.routes.homeTopic === "function") {
+        this.routes.homeTopic(topic);
       }
       return;
     }

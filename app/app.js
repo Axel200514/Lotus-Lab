@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=5.1";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.1";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.1";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.1";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.1";
-import { PinService } from "../modules/pins/services/pin.service.js?v=5.1";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=5.1";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.1";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.1";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.1";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.1";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.1";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.1";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.1";
+import { AppRouter } from "./app.routes.js?v=5.4";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.4";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.4";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.4";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.4";
+import { PinService } from "../modules/pins/services/pin.service.js?v=5.4";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=5.4";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.4";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.4";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.4";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.4";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.4";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.4";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.4";
 
 const FALLBACK_TAGS = [
   { label: "Genshin Impact", query: "genshin_impact" },
@@ -99,7 +99,7 @@ class LotusApp {
         }
         return isSaved;
       },
-      (pin, page, limit, excludeIds) => this.pinService.getRelatedPins(pin, page, limit, excludeIds)
+      (pin, page, limit, excludeIds, signal) => this.pinService.getRelatedPins(pin, page, limit, excludeIds, signal)
     );
 
     this.pinList = new PinListComponent(
@@ -157,9 +157,9 @@ class LotusApp {
         if (tag) {
           StorageUtils.addRecentSearch(tag);
           this.exploreService.clearIdeasCache();
-          this.showHomeTopicView(tag);
+          this.router.navigate(`topic=${encodeURIComponent(tag)}`);
         } else {
-          this.showFeedView();
+          this.router.navigate(APP_ROUTES.home);
         }
       }
     );
@@ -286,6 +286,10 @@ class LotusApp {
 
   async showPinModalById(pinId) {
     if (!pinId) return;
+
+    if (this.modal && this.modal.isOpen && this.modal.activePin && this.modal.activePin.id === pinId) {
+      return;
+    }
 
     if (this.pinList.renderedPins.length === 0 && !this.isFeedActive) {
       this.showFeedView();
@@ -479,7 +483,8 @@ class LotusApp {
 
     if (this.currentMode === "topic") {
       this.pendingPrefetch = false;
-      this.pinList.clear();
+      this.currentPage = 1;
+      this.hasMore = true;
       this.pinService.resetTopicSession();
       await this.fetchMorePins(true);
       return;
@@ -487,7 +492,8 @@ class LotusApp {
 
     if (this.currentMode === "search") {
       this.pendingPrefetch = false;
-      this.pinList.clear();
+      this.currentPage = 1;
+      this.hasMore = true;
       this.pinService.resetSearchSession();
       await this.fetchMorePins(true);
       return;
@@ -497,7 +503,6 @@ class LotusApp {
     this.feedPage = 1;
     this.feedHasMore = true;
     this.isFeedActive = true;
-    this.pinList.clear();
     this.pinService.resetSession();
     await this.fetchMorePins(true);
   }
@@ -568,6 +573,7 @@ class LotusApp {
     this.setExploreViewVisible(false);
 
     if (this.currentMode === "topic" && this.currentQuery === topic && this.pinList.renderedPins.length > 0) {
+      this.tagFilter.selectByTag(topic);
       return;
     }
 
@@ -605,6 +611,7 @@ class LotusApp {
     this.setExploreViewVisible(false);
 
     if (this.currentMode === "topic" && this.currentQuery === topic && this.pinList.renderedPins.length > 0) {
+      this.tagFilter.selectByTag(topic);
       return;
     }
 
@@ -793,7 +800,6 @@ class LotusApp {
     const clean = (tag || "").trim();
     if (clean) {
       StorageUtils.addRecentSearch(clean);
-      this.exploreService.clearIdeasCache();
     }
     this.router.navigate(`search=${encodeURIComponent(clean)}`);
   }
