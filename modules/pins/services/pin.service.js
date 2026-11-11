@@ -417,8 +417,8 @@ export class PinService {
     };
   }
 
-  async searchPins(query, page = 1, limit = API_CONFIG.defaultLimit) {
-    const safebooruResults = await this.fetchSafebooru(query, page, limit);
+  async searchPins(query, page = 1, limit = API_CONFIG.defaultLimit, signal = null) {
+    const safebooruResults = await this.fetchSafebooru(query, page, limit, signal);
     const seenArtworks = new Set();
     const filtered = [];
     for (const item of safebooruResults) {
@@ -438,7 +438,7 @@ export class PinService {
     };
   }
 
-  async getTopicPins(topic, page = 1, limit = API_CONFIG.defaultLimit) {
+  async getTopicPins(topic, page = 1, limit = API_CONFIG.defaultLimit, signal = null) {
     const cleanTopic = (topic || "").trim().toLowerCase();
     const cacheKey = `topic_${cleanTopic}_${page}_${limit}`;
 
@@ -446,7 +446,7 @@ export class PinService {
       return this.cache.get(cacheKey);
     }
 
-    const results = await this.fetchSafebooru(cleanTopic, page, limit);
+    const results = await this.fetchSafebooru(cleanTopic, page, limit, signal);
     const seenArtworks = new Set();
     const filtered = [];
     for (const item of results) {
@@ -472,20 +472,29 @@ export class PinService {
     return result;
   }
 
-  async fetchSafebooru(query, page, limit) {
+  async fetchSafebooru(query, page, limit, signal = null) {
     let raw = (query || "").trim().toLowerCase();
     if (!raw) {
-      const data = await this.executeSafebooruFetch("", page, limit);
+      const data = await this.executeSafebooruFetch("", page, limit, 2, signal);
       return data.map((item) => PinModel.fromSafebooru(item));
     }
 
     if (this.tagResolutionCache.has(raw)) {
       const resolvedTag = this.tagResolutionCache.get(raw);
-      const data = await this.executeSafebooruFetch(resolvedTag, page, limit);
+      const data = await this.executeSafebooruFetch(resolvedTag, page, limit, 2, signal);
+      if (signal && signal.aborted) {
+        return [];
+      }
       if (data.length > 0) {
         return data.map((item) => PinModel.fromSafebooru(item));
       }
-      this.tagResolutionCache.delete(raw);
+      return [];
+    }
+
+    if (page > 1) {
+      const norm = this.normalizeQuery(raw) || raw;
+      const data = await this.executeSafebooruFetch(norm, page, limit, 2, signal);
+      return data.map((item) => PinModel.fromSafebooru(item));
     }
 
     let fallbackBatch = null;
@@ -493,14 +502,14 @@ export class PinService {
     if (normalized && normalized !== raw) {
       if (this.tagResolutionCache.has(normalized)) {
         const cachedTag = this.tagResolutionCache.get(normalized);
-        const data = await this.executeSafebooruFetch(cachedTag, page, limit);
+        const data = await this.executeSafebooruFetch(cachedTag, page, limit, 2, signal);
         if (data.length > 0) {
           this.tagResolutionCache.set(raw, cachedTag);
           return data.map((item) => PinModel.fromSafebooru(item));
         }
       }
 
-      const normData = await this.executeSafebooruFetch(normalized, page, limit);
+      const normData = await this.executeSafebooruFetch(normalized, page, limit, 2, signal);
       if (normData.length >= 16) {
         this.tagResolutionCache.set(raw, normalized);
         return normData.map((item) => PinModel.fromSafebooru(item));
@@ -526,7 +535,7 @@ export class PinService {
     if (uniqueCandidates.length > 0) {
       const primaryBatch = uniqueCandidates.slice(0, 3);
       const batchResults = await Promise.allSettled(
-        primaryBatch.map((candidateTag) => this.executeSafebooruFetch(candidateTag, page, limit, 0))
+        primaryBatch.map((candidateTag) => this.executeSafebooruFetch(candidateTag, page, limit, 2, signal))
       );
 
       const seenIds = new Set();
@@ -550,75 +559,17 @@ export class PinService {
         }
       });
 
-      if (mergedItems.length >= 12) {
-        this.tagResolutionCache.set(raw, bestTag);
-        return mergedItems.slice(0, limit).map((item) => PinModel.fromSafebooru(item));
-      }
-
       if (mergedItems.length > 0) {
-        fallbackBatch = { tag: bestTag, data: mergedItems };
-        const altTag = this.findBestAlternativeTag(mergedItems, tokens, bestTag);
-        if (altTag) {
-          const altData = await this.executeSafebooruFetch(altTag, page, limit);
-          if (altData.length >= mergedItems.length) {
-            this.tagResolutionCache.set(raw, altTag);
-            return altData.map((item) => PinModel.fromSafebooru(item));
-          }
-        }
-        const parenFranchise = this.extractParenFranchise(mergedItems);
-        if (parenFranchise) {
-          const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
-          if (pData.length >= mergedItems.length) {
-            this.tagResolutionCache.set(raw, parenFranchise);
-            return pData.map((item) => PinModel.fromSafebooru(item));
-          }
-        }
-        const deepFranchise = await this.resolveFranchiseFromCharacterPost(mergedItems);
-        if (deepFranchise) {
-          const dData = await this.executeSafebooruFetch(deepFranchise, page, limit);
-          if (dData.length > 0) {
-            this.tagResolutionCache.set(raw, deepFranchise);
-            return dData.map((item) => PinModel.fromSafebooru(item));
-          }
-        }
         this.tagResolutionCache.set(raw, bestTag);
         return mergedItems.slice(0, limit).map((item) => PinModel.fromSafebooru(item));
       }
 
       for (const directTag of uniqueCandidates.slice(3)) {
-        const data = await this.executeSafebooruFetch(directTag, page, limit);
-        if (data.length >= 16) {
+        const data = await this.executeSafebooruFetch(directTag, page, limit, 2, signal);
+        if (signal && signal.aborted) return [];
+        if (data.length > 0) {
           this.tagResolutionCache.set(raw, directTag);
           return data.map((item) => PinModel.fromSafebooru(item));
-        }
-        if (data.length > 0) {
-          if (!fallbackBatch) {
-            fallbackBatch = { tag: directTag, data };
-          }
-          const altTag = this.findBestAlternativeTag(data, tokens, directTag);
-          if (altTag) {
-            const altData = await this.executeSafebooruFetch(altTag, page, limit);
-            if (altData.length >= data.length) {
-              this.tagResolutionCache.set(raw, altTag);
-              return altData.map((item) => PinModel.fromSafebooru(item));
-            }
-          }
-          const parenFranchise = this.extractParenFranchise(data);
-          if (parenFranchise) {
-            const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
-            if (pData.length >= data.length) {
-              this.tagResolutionCache.set(raw, parenFranchise);
-              return pData.map((item) => PinModel.fromSafebooru(item));
-            }
-          }
-          const deepFranchise = await this.resolveFranchiseFromCharacterPost(data);
-          if (deepFranchise) {
-            const dData = await this.executeSafebooruFetch(deepFranchise, page, limit);
-            if (dData.length > 0) {
-              this.tagResolutionCache.set(raw, deepFranchise);
-              return dData.map((item) => PinModel.fromSafebooru(item));
-            }
-          }
         }
       }
     }
@@ -626,19 +577,20 @@ export class PinService {
     if (tokens.length > 0) {
       for (const token of tokens) {
         const wildTag = `${token}*`;
-        const wildData = await this.executeSafebooruFetch(wildTag, 1, 10);
+        const wildData = await this.executeSafebooruFetch(wildTag, 1, 10, 2, signal);
+        if (signal && signal.aborted) return [];
         if (wildData.length > 0) {
           const altTag = this.findBestAlternativeTag(wildData, tokens, directCandidates[0]);
           if (altTag) {
-            const altData = await this.executeSafebooruFetch(altTag, page, limit);
+            const altData = await this.executeSafebooruFetch(altTag, page, limit, 2, signal);
             if (altData.length > 0) {
               this.tagResolutionCache.set(raw, altTag);
               return altData.map((item) => PinModel.fromSafebooru(item));
             }
           }
           const parenFranchise = this.extractParenFranchise(wildData);
-          if (parenFranchise) {
-            const pData = await this.executeSafebooruFetch(parenFranchise, page, limit);
+          if (parenFranchise && tokens.some((t) => parenFranchise.toLowerCase().includes(t))) {
+            const pData = await this.executeSafebooruFetch(parenFranchise, page, limit, 2, signal);
             if (pData.length > 0) {
               this.tagResolutionCache.set(raw, parenFranchise);
               return pData.map((item) => PinModel.fromSafebooru(item));
@@ -651,7 +603,7 @@ export class PinService {
     const romaji = await this.translateToRomaji(raw);
     if (romaji) {
       const romajiTag = romaji.replace(/\s+/g, "_");
-      const rData = await this.executeSafebooruFetch(romajiTag, page, limit);
+      const rData = await this.executeSafebooruFetch(romajiTag, page, limit, 2, signal);
       if (rData.length > 0) {
         this.tagResolutionCache.set(raw, romajiTag);
         return rData.map((item) => PinModel.fromSafebooru(item));
@@ -662,7 +614,7 @@ export class PinService {
     const candidates = this.buildTagCandidates(translated);
 
     for (const tag of candidates) {
-      const data = await this.executeSafebooruFetch(tag, page, limit);
+      const data = await this.executeSafebooruFetch(tag, page, limit, 2, signal);
       if (data.length > 0) {
         this.tagResolutionCache.set(raw, tag);
         return data.map((item) => PinModel.fromSafebooru(item));

@@ -83,6 +83,7 @@ class LotusApp {
     this.feedPage = 1;
     this.feedHasMore = true;
     this.isFeedActive = false;
+    this.activeFetchController = null;
 
     this.loader = new LoaderComponent();
 
@@ -90,8 +91,7 @@ class LotusApp {
       (tag) => this.handleTagSelection(tag),
       (pin) => {
         const isSaved = this.savedService.toggleSave(pin);
-        this.exploreService.clearIdeasCache();
-        this.hasRenderedExplore = false;
+        this.exploreService.notifyPinSaved();
         if (!isSaved && this.currentMode === "saved") {
           this.savedList.removePin(pin.id);
         } else if (isSaved && this.currentMode === "saved") {
@@ -798,9 +798,47 @@ class LotusApp {
     this.router.navigate(`search=${encodeURIComponent(clean)}`);
   }
 
+  async retryFetchReset(currentSeq) {
+    let retryResult = null;
+    try {
+      if (this.currentMode === "feed") {
+        this.pinService.resetSession();
+        retryResult = await this.pinService.getFeedPins(1, API_CONFIG.defaultLimit);
+      } else if (this.currentMode === "search") {
+        this.pinService.resetSearchSession();
+        retryResult = await this.pinService.searchPins(this.currentQuery, 1, API_CONFIG.defaultLimit);
+      } else if (this.currentMode === "topic") {
+        this.pinService.resetTopicSession();
+        retryResult = await this.pinService.getTopicPins(this.currentQuery, 1, API_CONFIG.defaultLimit);
+      }
+    } catch {}
+
+    if (currentSeq !== this.fetchSeq) return false;
+    const retryPins = retryResult?.pins || [];
+    if (retryPins.length > 0) {
+      this.pinList.clear();
+      this.loader.hideEmpty();
+      this.pinList.renderPins(retryPins);
+      this.currentPage = 2;
+      this.hasMore = Boolean(retryResult?.hasNextPage);
+      if (this.currentMode === "feed") {
+        this.feedPage = 2;
+        this.feedHasMore = this.hasMore;
+      }
+      return true;
+    }
+    return false;
+  }
+
   async fetchMorePins(reset = false, isSilent = false) {
     if (this.isLoading && !reset) return;
     if (!this.hasMore && !reset) return;
+
+    if (reset && this.activeFetchController) {
+      this.activeFetchController.abort();
+    }
+    this.activeFetchController = new AbortController();
+    const signal = this.activeFetchController.signal;
 
     this.isLoading = true;
     if (!isSilent) {
@@ -817,18 +855,21 @@ class LotusApp {
         result = await this.pinService.getTopicPins(
           this.currentQuery,
           this.currentPage,
-          API_CONFIG.defaultLimit
+          API_CONFIG.defaultLimit,
+          signal
         );
       } else if (this.currentMode === "search") {
         result = await this.pinService.searchPins(
           this.currentQuery,
           this.currentPage,
-          API_CONFIG.defaultLimit
+          API_CONFIG.defaultLimit,
+          signal
         );
       } else {
         result = await this.pinService.getFeedPins(
           this.currentPage,
-          API_CONFIG.defaultLimit
+          API_CONFIG.defaultLimit,
+          signal
         );
       }
 
@@ -838,22 +879,11 @@ class LotusApp {
       this.hasMore = Boolean(result?.hasNextPage);
 
       if (reset && pins.length === 0) {
-        if (this.currentMode === "feed") {
-          this.pinService.resetSession();
-          const retryResult = await this.pinService.getFeedPins(1, API_CONFIG.defaultLimit);
-          if (currentSeq !== this.fetchSeq) return;
-          const retryPins = retryResult?.pins || [];
-          if (retryPins.length > 0) {
-            this.loader.hideEmpty();
-            this.pinList.renderPins(retryPins);
-            this.currentPage = 2;
-            this.hasMore = Boolean(retryResult?.hasNextPage);
-            this.feedPage = 2;
-            this.feedHasMore = this.hasMore;
-            return;
-          }
+        const recovered = await this.retryFetchReset(currentSeq);
+        if (recovered) return;
+        if (this.pinList.renderedPins.length === 0) {
+          this.loader.showEmpty();
         }
-        this.loader.showEmpty();
         this.hasMore = false;
         if (this.currentMode === "feed") {
           this.feedHasMore = false;
@@ -861,6 +891,9 @@ class LotusApp {
         return;
       }
 
+      if (reset) {
+        this.pinList.clear();
+      }
       this.loader.hideEmpty();
       this.pinList.renderPins(pins);
       this.currentPage += 1;
@@ -876,24 +909,11 @@ class LotusApp {
     } catch {
       if (currentSeq !== this.fetchSeq) return;
       if (reset) {
-        if (this.currentMode === "feed") {
-          try {
-            this.pinService.resetSession();
-            const retryResult = await this.pinService.getFeedPins(1, API_CONFIG.defaultLimit);
-            if (currentSeq !== this.fetchSeq) return;
-            const retryPins = retryResult?.pins || [];
-            if (retryPins.length > 0) {
-              this.loader.hideEmpty();
-              this.pinList.renderPins(retryPins);
-              this.currentPage = 2;
-              this.hasMore = Boolean(retryResult?.hasNextPage);
-              this.feedPage = 2;
-              this.feedHasMore = this.hasMore;
-              return;
-            }
-          } catch {}
+        const recovered = await this.retryFetchReset(currentSeq);
+        if (recovered) return;
+        if (this.pinList.renderedPins.length === 0) {
+          this.loader.showEmpty();
         }
-        this.loader.showEmpty();
       }
     } finally {
       if (currentSeq === this.fetchSeq) {
