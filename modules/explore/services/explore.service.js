@@ -129,20 +129,27 @@ export class ExploreService {
     return data.popularSections || [];
   }
 
+  notifyPinSaved() {
+    StorageUtils.notifyTasteDirty();
+  }
+
   async getIdeasForYou(forceRefresh = false) {
     try {
       localStorage.removeItem("lotus_ideas_for_you_cache");
     } catch {}
 
     if (!forceRefresh) {
-      if (this.ideasMemoryCache) return this.ideasMemoryCache;
+      if (this.ideasMemoryCache && !StorageUtils.shouldRefreshIdeas(this.ideasMemoryTimestamp)) {
+        return this.ideasMemoryCache;
+      }
       try {
         const raw = localStorage.getItem(IDEAS_CACHE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && parsed.timestamp && Array.isArray(parsed.data) && parsed.data.length >= 5) {
-            if (Date.now() - parsed.timestamp < IDEAS_CACHE_TTL_MS) {
+            if (!StorageUtils.shouldRefreshIdeas(parsed.timestamp)) {
               this.ideasMemoryCache = parsed.data;
+              this.ideasMemoryTimestamp = parsed.timestamp;
               return parsed.data;
             }
           }
@@ -153,11 +160,13 @@ export class ExploreService {
 
     const ideas = await this.buildIdeasForYouPayload();
     this.ideasMemoryCache = ideas;
+    this.ideasMemoryTimestamp = Date.now();
+    StorageUtils.resetTasteDirty();
     try {
       localStorage.setItem(
         IDEAS_CACHE_KEY,
         JSON.stringify({
-          timestamp: Date.now(),
+          timestamp: this.ideasMemoryTimestamp,
           data: ideas
         })
       );

@@ -40,7 +40,7 @@ export class StorageUtils {
     const list = this.getSavedPins();
     const index = list.findIndex((p) => String(p.id) === String(pin.id));
 
-    this.clearIdeasCache();
+    this.notifyTasteDirty();
     if (index >= 0) {
       list.splice(index, 1);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
@@ -127,6 +127,37 @@ export class StorageUtils {
     } catch {}
   }
 
+  static notifyTasteDirty() {
+    try {
+      const pending = Number(localStorage.getItem("lotus_taste_pending_saves") || 0) + 1;
+      localStorage.setItem("lotus_taste_pending_saves", String(pending));
+      if (!localStorage.getItem("lotus_taste_dirty_since")) {
+        localStorage.setItem("lotus_taste_dirty_since", String(Date.now()));
+      }
+    } catch {}
+  }
+
+  static shouldRefreshIdeas(cachedTimestamp) {
+    if (!cachedTimestamp) return true;
+    const now = Date.now();
+    if (now - cachedTimestamp > 24 * 60 * 60 * 1000) return true;
+    try {
+      const pending = Number(localStorage.getItem("lotus_taste_pending_saves") || 0);
+      const dirtySince = Number(localStorage.getItem("lotus_taste_dirty_since") || 0);
+      if (pending >= 3 || (dirtySince && now - dirtySince > 15 * 60 * 1000)) {
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  static resetTasteDirty() {
+    try {
+      localStorage.removeItem("lotus_taste_pending_saves");
+      localStorage.removeItem("lotus_taste_dirty_since");
+    } catch {}
+  }
+
   static clearIdeasCache() {
     try {
       localStorage.removeItem(IDEAS_CACHE_KEY);
@@ -138,6 +169,7 @@ export class StorageUtils {
       localStorage.removeItem("lotus_ideas_cache_v16");
       localStorage.removeItem("lotus_ideas_cache_v15");
       localStorage.removeItem("lotus_ideas_for_you_cache");
+      this.resetTasteDirty();
     } catch {}
   }
 
