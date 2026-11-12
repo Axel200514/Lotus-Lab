@@ -13,6 +13,7 @@ export class ModalComponent {
     this.previousHash = "";
     this.seenPinIds = new Set();
     this.renderedRelatedIds = new Set();
+    this.renderedRelatedHashes = new Set();
     this.relatedCache = new Map();
     this.pinStack = [];
     this.relatedPage = 1;
@@ -566,9 +567,20 @@ export class ModalComponent {
         this.scrollCue.classList.remove("hide");
       }
 
+      const extractHash = (relPin) => {
+        if (!relPin) return "";
+        if (relPin.artworkKey && !relPin.artworkKey.startsWith("sb_")) return relPin.artworkKey.toLowerCase();
+        const url = relPin.previewUrl || relPin.sampleUrl || relPin.image || "";
+        const m = url.match(/([a-f0-9]{32})/i);
+        return m ? m[1].toLowerCase() : (url ? url.split("/").pop().toLowerCase() : relPin.id);
+      };
+
       const uniqueRelated = related.filter((relPin) => {
         if (!relPin || !relPin.id || this.renderedRelatedIds.has(relPin.id)) return false;
+        const hash = extractHash(relPin);
+        if (hash && this.renderedRelatedHashes.has(hash)) return false;
         this.renderedRelatedIds.add(relPin.id);
+        if (hash) this.renderedRelatedHashes.add(hash);
         this.seenPinIds.add(relPin.id);
         return true;
       });
