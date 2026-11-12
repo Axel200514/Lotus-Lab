@@ -74,8 +74,10 @@ export class ModalComponent {
       if (!this.isOpen) return;
       if (this.pinStack.length > 1) {
         this.pinStack.pop();
-        const prevPin = this.pinStack[this.pinStack.length - 1];
-        this.renderPin(prevPin, false);
+        const prevEntry = this.pinStack[this.pinStack.length - 1];
+        const prevPin = prevEntry.pin || prevEntry;
+        const prevScroll = typeof prevEntry.scrollY === "number" ? prevEntry.scrollY : 0;
+        this.renderPin(prevPin, false, prevScroll);
       } else {
         this.pinStack = [];
         this.closeInternal();
@@ -226,10 +228,16 @@ export class ModalComponent {
     }
 
     if (pushToStack) {
-      this.pinStack.push(pin);
+      if (this.pinStack.length > 0) {
+        const top = this.pinStack[this.pinStack.length - 1];
+        if (top) {
+          top.scrollY = this.backdrop ? this.backdrop.scrollTop : 0;
+        }
+      }
+      this.pinStack.push({ pin, scrollY: 0 });
       history.pushState({ modalOpen: true, pinId: pin.id }, "", `#pin=${encodeURIComponent(pin.id)}`);
     } else {
-      this.pinStack = [pin];
+      this.pinStack = [{ pin, scrollY: 0 }];
     }
 
     if (!this.isOpen) {
@@ -238,11 +246,10 @@ export class ModalComponent {
       this.backdrop.classList.add("open");
     }
 
-    this.resetModalScroll();
-    this.renderPin(pin, isSaved);
+    this.renderPin(pin, isSaved, null);
   }
 
-  renderPin(pin, isSaved = false) {
+  renderPin(pin, isSaved = false, restoreScrollTop = null) {
     if (!pin) return;
     this.activePin = pin;
     this.seenPinIds.add(pin.id);
@@ -510,6 +517,13 @@ export class ModalComponent {
           this.relatedContainer.classList.remove("d-none");
         }
         this.renderRelatedPinsBatch(cached.pins);
+        if (typeof restoreScrollTop === "number" && restoreScrollTop > 0) {
+          requestAnimationFrame(() => {
+            if (this.backdrop) {
+              this.backdrop.scrollTop = restoreScrollTop;
+            }
+          });
+        }
         return;
       }
 
@@ -574,6 +588,13 @@ export class ModalComponent {
       }
 
       this.renderRelatedPinsBatch(uniqueRelated);
+      if (typeof restoreScrollTop === "number" && restoreScrollTop > 0) {
+        requestAnimationFrame(() => {
+          if (this.backdrop) {
+            this.backdrop.scrollTop = restoreScrollTop;
+          }
+        });
+      }
     } catch {
       this.hasMoreRelated = false;
       const entry = this.relatedCache.get(pin.id);
