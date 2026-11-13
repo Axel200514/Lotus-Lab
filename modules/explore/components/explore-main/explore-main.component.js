@@ -67,6 +67,17 @@ export class ExploreMainComponent {
       seenPopularKeys.add(normTitle);
       return true;
     });
+    if (validSections.length < 4) {
+      for (const s of popularSections) {
+        if (!s || !Array.isArray(s.thumbnails) || s.thumbnails.length < 4) continue;
+        const normTitle = normalizeTopicKey(s.title);
+        if (seenPopularKeys.has(normTitle)) continue;
+        seenPopularKeys.add(normTitle);
+        validSections.push(s);
+        if (validSections.length >= 4) break;
+      }
+    }
+
     validSections.forEach((section) => {
       const sectionNode = this.buildPopularSection(section);
       fragment.appendChild(sectionNode);

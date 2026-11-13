@@ -384,7 +384,7 @@ export class ExploreService {
 
   isSanitized(data) {
     if (!this.isValidPayload(data)) return false;
-    if (!Array.isArray(data.popularSections) || data.popularSections.length < 3) return false;
+    if (!Array.isArray(data.popularSections) || data.popularSections.length < 4) return false;
     const existingBoardKeys = new Set(
       (data.boards || []).flatMap((b) => [this.normalizeTopicKey(b.title), this.normalizeTopicKey(b.tag)]).filter(Boolean)
     );
@@ -422,7 +422,7 @@ export class ExploreService {
       validSections.push(s);
     });
 
-    const targetCount = Math.max(3, rawSections.length);
+    const targetCount = Math.max(4, rawSections.length);
     if (validSections.length < targetCount) {
       const candidates = await this.getReplacementCandidates(existingBoardKeys, seenSectionKeys);
       for (const candTag of candidates) {
