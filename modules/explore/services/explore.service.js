@@ -1,5 +1,5 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.0";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.4";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.4";
 
 const CACHE_KEY = "lotus_explore_cache_v24";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
@@ -524,18 +524,73 @@ export class ExploreService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&limit=6`, {
+      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&limit=16`, {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       if (!res.ok) return null;
       const posts = await res.json();
       if (!Array.isArray(posts) || posts.length < 4) return null;
-      const thumbnails = posts.map((p) => ({
-        url: p.sample_url || p.preview_url,
-        width: p.sample_width || p.width || 240,
-        height: p.sample_height || p.height || 320
-      }));
+
+      const extractHash = (p, url) => {
+        if (p && p.hash) return String(p.hash).toLowerCase();
+        const m = (url || "").match(/([a-f0-9]{32})/i);
+        return m ? m[1].toLowerCase() : (url ? url.split("/").pop().toLowerCase() : String(p.id));
+      };
+
+      const extractSourceId = (src) => {
+        if (!src) return "";
+        const m = src.match(/(?:status\/|illust_id=|\/artworks\/)(\d+)/i);
+        return m ? m[1] : "";
+      };
+
+      const seenHashes = new Set();
+      const seenSources = new Set();
+      const acceptedArtworks = [];
+      const thumbnails = [];
+
+      for (const p of posts) {
+        const url = p.sample_url || p.preview_url || p.file_url;
+        if (!url || /\.(gif|mp4|webm)$/i.test(url)) continue;
+        const hash = extractHash(p, url);
+        if (seenHashes.has(hash)) continue;
+
+        const sourceId = extractSourceId(p.source);
+        if (sourceId && seenSources.has(sourceId)) continue;
+
+        const w = Number(p.sample_width || p.width) || 240;
+        const h = Number(p.sample_height || p.height) || 320;
+        const ratio = w / Math.max(1, h);
+        const tags = (p.tags || "").split(" ").filter(Boolean);
+
+        let isDuplicate = false;
+        for (const accepted of acceptedArtworks) {
+          if (Math.abs(accepted.ratio - ratio) < 0.015) {
+            let shared = 0;
+            for (const t of tags) {
+              if (accepted.tags.has(t)) shared++;
+            }
+            if (shared >= 8 || shared / Math.max(1, Math.min(tags.length, accepted.tags.size)) > 0.6) {
+              isDuplicate = true;
+              break;
+            }
+          }
+        }
+        if (isDuplicate) continue;
+
+        seenHashes.add(hash);
+        if (sourceId) seenSources.add(sourceId);
+        acceptedArtworks.push({ ratio, tags: new Set(tags) });
+        thumbnails.push({
+          url,
+          width: w,
+          height: h
+        });
+        if (thumbnails.length >= 6) break;
+      }
+
+      if (thumbnails.length < 4) return null;
+
       return {
         id: `pop-rep-${Date.now()}-${tag.replace(/[^a-z0-9]/gi, "_")}`,
         title: this.formatTitle(tag),

@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=5.0";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.0";
+import { ExploreService } from "../../services/explore.service.js?v=5.4";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.4";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -67,6 +67,7 @@ export class ExploreMainComponent {
       seenPopularKeys.add(normTitle);
       return true;
     });
+
     if (validSections.length < 4) {
       for (const s of popularSections) {
         if (!s || !Array.isArray(s.thumbnails) || s.thumbnails.length < 4) continue;
@@ -257,13 +258,20 @@ export class ExploreMainComponent {
     shortcutBtn.title = `Explore ${displayTitle}`;
 
     const thumbsFragment = document.createDocumentFragment();
+    const seenThumbKeys = new Set();
 
     item.thumbnails.forEach((thumb) => {
+      const src = typeof thumb === "string" ? thumb : (thumb ? thumb.url : "");
+      if (!src) return;
+      const m = src.match(/([a-f0-9]{32})/i);
+      const thumbKey = m ? m[1].toLowerCase() : src.split("/").pop().toLowerCase();
+      if (seenThumbKeys.has(thumbKey)) return;
+      seenThumbKeys.add(thumbKey);
+
       const thumbClone = this.thumbTemplate.content.cloneNode(true);
       const wrapper = thumbClone.querySelector(".popular-thumb-wrapper");
       const img = thumbClone.querySelector(".popular-thumb");
 
-      const src = typeof thumb === "string" ? thumb : thumb.url;
       const w = typeof thumb === "object" ? Number(thumb.width) : 0;
       const h = typeof thumb === "object" ? Number(thumb.height) : 0;
 
