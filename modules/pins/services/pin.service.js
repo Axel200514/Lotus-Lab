@@ -1,6 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.0";
-import { PinModel } from "../../shared/models/pin.model.js?v=5.0";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.0";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.4";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.4";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.4";
 
 export class PinService {
   constructor() {
@@ -705,7 +705,7 @@ export class PinService {
     };
   }
 
-  async getRelatedPins(pin, page = 1, limit = 8, excludeIds = null) {
+  async getRelatedPins(pin, page = 1, limit = 8, excludeIds = null, signal = null) {
     if (!pin) return [];
 
     const cacheKey = `rel_${pin.id}_${page}_${limit}`;
@@ -721,33 +721,42 @@ export class PinService {
     const queryTags = [];
     if (anchors.primaryCharacter && anchors.primarySeries) {
       queryTags.push(`${anchors.primaryCharacter}+${anchors.primarySeries}`);
-    }
-    if (anchors.primaryCharacter) {
+    } else if (anchors.primaryCharacter) {
       queryTags.push(anchors.primaryCharacter);
-    }
-    if (anchors.primarySeries && !queryTags.includes(anchors.primarySeries)) {
+    } else if (anchors.primarySeries) {
       queryTags.push(anchors.primarySeries);
-    }
-    for (const a of anchors.allAnchors) {
-      if (!queryTags.includes(a)) {
-        queryTags.push(a);
-      }
+    } else if (anchors.allAnchors.length > 0) {
+      queryTags.push(anchors.allAnchors[0]);
     }
 
-    const fetchAmount = Math.max(12, limit * 2);
+    if (anchors.primarySeries && !queryTags.includes(anchors.primarySeries)) {
+      queryTags.push(anchors.primarySeries);
+    } else if (anchors.allAnchors.length > 0 && !queryTags.includes(anchors.allAnchors[0])) {
+      queryTags.push(anchors.allAnchors[0]);
+    }
+
+    const fetchAmount = Math.max(16, limit * 2);
 
     for (let i = 0; i < queryTags.length; i++) {
       if (results.length >= limit) break;
+      if (signal && signal.aborted) break;
       const tag = queryTags[i];
       const clean = tag.replace(/\s+/g, "_").replace(/[*]+/g, "");
-      const targetPage = Math.max(0, page - 1);
+      const targetPage = page;
       const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(clean)}&page=${targetPage}&limit=${fetchAmount}`;
 
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4500);
+        const onAbort = () => controller.abort();
+        if (signal) {
+          signal.addEventListener("abort", onAbort, { once: true });
+        }
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
+        if (signal) {
+          signal.removeEventListener("abort", onAbort);
+        }
         if (res.ok) {
           const text = await res.text();
           const safeText = (text || "").trim();
@@ -762,13 +771,22 @@ export class PinService {
                   if (results.length >= limit) break;
                 }
               }
-              if (i === 0 && results.length >= 2) {
-                break;
-              }
             }
           }
         }
       } catch {}
+    }
+
+    if (results.length === 0 && anchors.primaryCharacter && (!signal || !signal.aborted)) {
+      const cleanChar = anchors.primaryCharacter.replace(/\s+/g, "_").replace(/[*]+/g, "");
+      const targetPage = page;
+      const fallbackData = await this.executeSafebooruFetch(cleanChar, targetPage, limit, 1, signal);
+      for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
+        if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+          results.push(item);
+          if (results.length >= limit) break;
+        }
+      }
     }
 
     if (results.length > 0) {

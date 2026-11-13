@@ -586,6 +586,10 @@ export class ModalComponent {
       });
 
       if (uniqueRelated.length === 0) {
+        if (this.relatedPage < 4) {
+          this.relatedPage += 1;
+          return this.loadRelatedPins(pin, false, isSilent, restoreScrollTop);
+        }
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
         if (entry) entry.hasMore = false;
