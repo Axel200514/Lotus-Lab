@@ -1,0 +1,31 @@
+Copyright (c) 2026 Axel (Axel200514). All rights reserved.
+
+PROPRIETARY SOURCE CODE & INTELLECTUAL PROPERTY NOTICE
+
+1. Ownership of Source Code:
+All original source code, frontend architecture, stylesheets, layout structures, and application logic in this repository are the exclusive intellectual property of Axel (Axel200514).
+
+2. Permitted Use:
+This repository is published publicly solely for personal portfolio display, educational code review, and technical demonstration purposes. Any unauthorized copying, modification, republication, redistribution, sublicensing, or commercial exploitation of this software or its codebase, in whole or in part, is strictly prohibited without prior written permission from the author.
+
+
+DISCLAIMER OF LIABILITY (THIRD-PARTY ACTS & SOFTWARE AS-IS)
+
+3. No Warranty & Limitation of Liability:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR (AXEL200514) OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, LOSSES, LIABILITIES, OR LEGAL CONSEQUENCES WHATSOEVER, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE, MISUSE, ABUSE, OR REPLICATION OF THE SOFTWARE BY ANY THIRD PARTIES.
+
+If third parties clone, fork, modify, execute, or deploy this code, they do so entirely at their own risk. The author assumes zero liability for any actions, violations, or damages caused by third parties.
+
+
+THIRD-PARTY CONTENT & TRADEMARKS DISCLAIMER
+
+4. Non-Hosting of Media Assets:
+This application does not host, upload, store, or sell any media files, images, or illustrations on any private server or database. Lotus functions solely as a client-side search interface querying the public, external Safebooru API.
+
+5. Trademarks & Anime Copyrights:
+All character designs, anime/manga franchises, video game titles, and illustrations indexed by or displayed via external queries remain the exclusive property and copyright of their respective creators, artists, animation studios, and publishers. No affiliation, endorsement, or ownership over any indexed media is claimed.
+
+6. Content Inquiries & Takedowns:
+Because no media files are physically hosted or stored within this project, copyright owners seeking the removal of any image must direct their requests directly to the upstream imageboard providers (Safebooru) or original hosting platforms.

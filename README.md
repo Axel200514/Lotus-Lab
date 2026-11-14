@@ -82,10 +82,6 @@ Lotus-Lab/
 ├── index.html                      # Main entry point and HTML templates
 ├── legal.html                      # Legal, Privacy, and DMCA Transparency Center
 ├── README.md                       # Architectural documentation
-├── proxy/
-│   ├── worker.js                   # Cloudflare Worker script with D1 bindings
-│   ├── server.js                   # Local development proxy server
-│   └── aliases_dump.sql            # Cloudflare D1 tag alias schema and dump
 ├── docs/                           # Visual preview assets and screenshots
 ├── styles/                         # Global design system & styles
 │   ├── Fonts/                      # Outfit font files (.ttf)
