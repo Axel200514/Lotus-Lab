@@ -1,6 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.4";
-import { PinModel } from "../../shared/models/pin.model.js?v=5.4";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.4";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.5";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.5";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.5";
 
 export class PinService {
   constructor() {
@@ -32,7 +32,11 @@ export class PinService {
   }
 
   normalizeQuery(q) {
-    const clean = (q || "").trim().toLowerCase();
+    const deCamel = (q || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+      .trim();
+    const clean = deCamel.toLowerCase();
     if (!clean) return "";
 
     const xFixed = clean.replace(/([a-z0-9]+)\s*x\s*([a-z0-9]+)/gi, (m, g1, g2) => `${g1}_x_${g2}`);
@@ -162,7 +166,7 @@ export class PinService {
     const clean = (raw || "").trim().toLowerCase();
     const candidates = new Set();
 
-    const normalized = this.normalizeQuery(clean);
+    const normalized = this.normalizeQuery(raw);
     if (normalized) {
       candidates.add(normalized);
       candidates.add(normalized.replace(/[\s-]+/g, "_"));
@@ -204,31 +208,6 @@ export class PinService {
         const match = tag.match(/\(([^)]+)\)$/);
         if (match && match[1] && !match[1].match(/cosplay|style|medium|mtf/i)) {
           return match[1];
-        }
-      }
-    }
-    return null;
-  }
-
-  async resolveFranchiseFromCharacterPost(items) {
-    if (!Array.isArray(items) || items.length === 0) return null;
-    const candidateTags = [];
-    for (const post of items) {
-      const rawTags = typeof post.tags === "string" ? post.tags.split(/\s+/) : Array.isArray(post.tags) ? post.tags : [];
-      for (const tag of rawTags) {
-        if (tag.includes("_") && !tag.match(/hair|eyes|skin|clothes|shirt|dress|skirt|solo|highres|looking|smile/)) {
-          candidateTags.push(tag);
-        }
-      }
-    }
-    for (const c of candidateTags.slice(0, 4)) {
-      const data = await this.executeSafebooruFetch(c, 1, 3);
-      for (const p of data) {
-        const pTags = typeof p.tags === "string" ? p.tags.split(/\s+/) : Array.isArray(p.tags) ? p.tags : [];
-        for (const t of pTags) {
-          if (t.endsWith("_(series)") || t.endsWith("_(anime)") || t.endsWith("_(game)") || t.endsWith("_(manga)") || t.endsWith("_(novel)")) {
-            return t;
-          }
         }
       }
     }
@@ -492,13 +471,13 @@ export class PinService {
     }
 
     if (page > 1) {
-      const norm = this.normalizeQuery(raw) || raw;
+      const norm = this.normalizeQuery(query) || raw;
       const data = await this.executeSafebooruFetch(norm, page, limit, 2, signal);
       return data.map((item) => PinModel.fromSafebooru(item));
     }
 
     let fallbackBatch = null;
-    const normalized = this.normalizeQuery(raw);
+    const normalized = this.normalizeQuery(query);
     if (normalized && normalized !== raw) {
       if (this.tagResolutionCache.has(normalized)) {
         const cachedTag = this.tagResolutionCache.get(normalized);
@@ -529,7 +508,7 @@ export class PinService {
     }
 
     const tokens = this.extractSignificantTokens(raw);
-    const directCandidates = this.buildSearchCandidates(raw);
+    const directCandidates = this.buildSearchCandidates(query);
 
     const uniqueCandidates = Array.from(new Set(directCandidates.filter(Boolean)));
     if (uniqueCandidates.length > 0) {

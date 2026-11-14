@@ -1,4 +1,4 @@
-import { APP_ROUTES } from "./app.config.js?v=5.4";
+import { APP_ROUTES } from "./app.config.js?v=5.5";
 
 export class AppRouter {
   constructor(routes = {}) {
@@ -8,11 +8,11 @@ export class AppRouter {
   }
 
   init() {
-    window.addEventListener("hashchange", () => this.handleHashChange());
-    this.handleHashChange();
+    window.addEventListener("hashchange", () => this.handleHashChange(false));
+    this.handleHashChange(true);
   }
 
-  handleHashChange() {
+  handleHashChange(isInitial = false) {
     const rawHash = window.location.hash.replace(/^#\/?/, "");
 
     if (rawHash.startsWith("pin=")) {
@@ -37,6 +37,15 @@ export class AppRouter {
     }
 
     if (rawHash.startsWith("topic=")) {
+      if (isInitial) {
+        history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        const route = APP_ROUTES.home;
+        this.currentRoute = route;
+        if (typeof this.routes[route] === "function") {
+          this.routes[route]();
+        }
+        return;
+      }
       const topic = decodeURIComponent(rawHash.slice(6));
       this.currentRoute = "home-topic";
       if (typeof this.routes.homeTopic === "function") {

@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=5.4";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.4";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.4";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.4";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.4";
-import { PinService } from "../modules/pins/services/pin.service.js?v=5.4";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=5.4";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.4";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.4";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.4";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.4";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.4";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.4";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.4";
+import { AppRouter } from "./app.routes.js?v=5.5";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=5.5";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=5.5";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=5.5";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=5.5";
+import { PinService } from "../modules/pins/services/pin.service.js?v=5.5";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=5.5";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=5.5";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=5.5";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=5.5";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=5.5";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=5.5";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.5";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.5";
 
 const FALLBACK_TAGS = [
   { label: "Genshin Impact", query: "genshin_impact" },

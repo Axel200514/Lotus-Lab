@@ -1,4 +1,4 @@
-import { showToast } from "../../../shared/utils/ui.utils.js?v=5.4";
+import { showToast } from "../../../shared/utils/ui.utils.js?v=5.5";
 
 export class SavedListComponent {
   constructor(pinListComponent, savedService, loaderComponent, onExploreClick) {
