@@ -339,7 +339,7 @@ export class PinService {
   }
 
   async getFeedPins(page = 1, limit = API_CONFIG.defaultLimit, signal = null) {
-    const targetPage = page + this.sessionOffset;
+    const targetPage = ((page + this.sessionOffset - 1) % 1000) + 1;
     const list = await this.fetchSafebooru("", targetPage, limit, signal);
     const seen = new Set();
     const seenArtworks = new Set();
@@ -381,9 +381,15 @@ export class PinService {
       for (const item of emergency) {
         if (!item || !item.id) continue;
         const artKey = item.artworkKey || item.id;
-        if (!seen.has(item.id) && !seenArtworks.has(artKey)) {
+        if (
+          !seen.has(item.id) &&
+          !seenArtworks.has(artKey) &&
+          !this.sessionSeenIds.has(item.id) &&
+          !this.sessionSeenArtworks.has(artKey)
+        ) {
           seen.add(item.id);
           this.sessionSeenArtworks.add(artKey);
+          this.sessionSeenIds.add(item.id);
           combined.push(item);
         }
       }
@@ -703,6 +709,10 @@ export class PinService {
     const results = [];
     const collectedIds = new Set(excludeIds ? [...excludeIds] : []);
     collectedIds.add(pin.id);
+    const collectedArtworks = new Set();
+    if (pin.artworkKey) {
+      collectedArtworks.add(pin.artworkKey);
+    }
 
     const queryTags = [];
     if (anchors.primaryCharacter && anchors.primarySeries) {
@@ -750,8 +760,10 @@ export class PinService {
             if (Array.isArray(data) && data.length > 0) {
               const mapped = data.map((item) => PinModel.fromSafebooru(item));
               for (const item of mapped) {
-                if (!collectedIds.has(item.id)) {
+                const artKey = item.artworkKey || item.id;
+                if (!collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
                   collectedIds.add(item.id);
+                  collectedArtworks.add(artKey);
                   results.push(item);
                   if (results.length >= limit) break;
                 }
@@ -767,7 +779,10 @@ export class PinService {
         const cleanChar = anchors.primaryCharacter.replace(/[*]+/g, "").trim();
         const fallbackData = await this.executeSafebooruFetch(cleanChar, page, limit, 1, signal);
         for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
-          if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+          const artKey = item.artworkKey || item.id;
+          if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+            collectedIds.add(item.id);
+            collectedArtworks.add(artKey);
             results.push(item);
             if (results.length >= limit) break;
           }
@@ -779,7 +794,10 @@ export class PinService {
           const cleanTag = fallbackTag.replace(/[*]+/g, "").trim();
           const fallbackData = await this.executeSafebooruFetch(cleanTag, page, limit, 1, signal);
           for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
-            if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+            const artKey = item.artworkKey || item.id;
+            if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+              collectedIds.add(item.id);
+              collectedArtworks.add(artKey);
               results.push(item);
               if (results.length >= limit) break;
             }
@@ -789,7 +807,10 @@ export class PinService {
       if (results.length === 0) {
         const feedData = await this.executeSafebooruFetch("", page, limit, 1, signal);
         for (const item of feedData.map((p) => PinModel.fromSafebooru(p))) {
-          if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+          const artKey = item.artworkKey || item.id;
+          if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+            collectedIds.add(item.id);
+            collectedArtworks.add(artKey);
             results.push(item);
             if (results.length >= limit) break;
           }
