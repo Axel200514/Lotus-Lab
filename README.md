@@ -43,7 +43,7 @@ Private, local device pin bookmarking stored via `localStorage` with human-reada
 
 | Desktop View | Mobile View |
 | :---: | :---: |
-| ![Lotus Collections Desktop](docs/assets/pc-collections.png) | <img src="docs/assets/mobile-collections.jpg" width="320" alt="Lotus Collections Mobile"> |
+| ![Lotus Collections Desktop](docs/assets/pc-collections.png?v=2) | <img src="docs/assets/mobile-collections.jpg?v=2" width="320" alt="Lotus Collections Mobile"> |
 
 ---
 
