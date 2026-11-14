@@ -638,9 +638,23 @@ export class PinService {
     const seriesTags = [];
     const themeTags = [];
 
+    const isGeneric = (text) => {
+      const lower = (text || "").toLowerCase();
+      return (
+        lower.includes("artist") ||
+        lower.includes("illustration") ||
+        lower.includes("artwork") ||
+        lower.includes("drawing") ||
+        lower.includes("original") ||
+        lower.includes("pixiv") ||
+        lower.includes("danbooru") ||
+        lower.includes("safebooru")
+      );
+    };
+
     if (pin.character) {
       const c = pin.character.trim().toLowerCase().replace(/\s+/g, "_");
-      if (isCharacterTag(c)) {
+      if (isCharacterTag(c) && !isGeneric(c)) {
         characterTags.push(c);
       }
     }
@@ -654,9 +668,9 @@ export class PinService {
     if (titleMatch) {
       const c = titleMatch[1].trim().toLowerCase().replace(/\s+/g, "_");
       const s = titleMatch[2].trim().toLowerCase().replace(/\s+/g, "_");
-      if (isCharacterTag(c) && !characterTags.includes(c)) characterTags.push(c);
-      if (isCharacterTag(s) && !seriesTags.includes(s)) seriesTags.push(s);
-    } else if (titleNormalized && !titleNormalized.includes("Illustration") && !titleNormalized.includes("Digital Artist")) {
+      if (isCharacterTag(c) && !isGeneric(c) && !characterTags.includes(c)) characterTags.push(c);
+      if (isCharacterTag(s) && !isGeneric(s) && !seriesTags.includes(s)) seriesTags.push(s);
+    } else if (titleNormalized && !isGeneric(titleNormalized)) {
       const c = titleNormalized.toLowerCase().replace(/\s+/g, "_");
       if (isCharacterTag(c) && !characterTags.includes(c)) {
         characterTags.push(c);
@@ -678,16 +692,9 @@ export class PinService {
     }
 
     let primaryArtist = null;
-    if (
-      pin.author &&
-      !pin.author.includes("Digital Artist") &&
-      !pin.author.includes("Visual Artist") &&
-      !pin.author.includes("Pixiv Artist") &&
-      !pin.author.includes("Artista Digital") &&
-      !pin.author.includes("Artista Visual")
-    ) {
+    if (pin.author && !isGeneric(pin.author)) {
       const cleanArtist = pin.author.replace(/^@/, "").trim().toLowerCase();
-      if (cleanArtist && cleanArtist !== "pixiv" && cleanArtist !== "danbooru" && isCharacterTag(cleanArtist)) {
+      if (cleanArtist && isCharacterTag(cleanArtist)) {
         primaryArtist = cleanArtist;
       }
     }
@@ -720,19 +727,18 @@ export class PinService {
 
     const queryTags = [];
     if (anchors.primaryCharacter && anchors.primarySeries) {
-      queryTags.push(`${anchors.primaryCharacter}+${anchors.primarySeries}`);
+      queryTags.push(`${anchors.primaryCharacter} ${anchors.primarySeries}`);
     } else if (anchors.primaryCharacter) {
       queryTags.push(anchors.primaryCharacter);
     } else if (anchors.primarySeries) {
       queryTags.push(anchors.primarySeries);
-    } else if (anchors.allAnchors.length > 0) {
-      queryTags.push(anchors.allAnchors[0]);
     }
 
-    if (anchors.primarySeries && !queryTags.includes(anchors.primarySeries)) {
-      queryTags.push(anchors.primarySeries);
-    } else if (anchors.allAnchors.length > 0 && !queryTags.includes(anchors.allAnchors[0])) {
-      queryTags.push(anchors.allAnchors[0]);
+    for (const a of anchors.allAnchors) {
+      if (!queryTags.includes(a)) {
+        queryTags.push(a);
+      }
+      if (queryTags.length >= 6) break;
     }
 
     const fetchAmount = Math.max(16, limit * 2);
@@ -741,7 +747,7 @@ export class PinService {
       if (results.length >= limit) break;
       if (signal && signal.aborted) break;
       const tag = queryTags[i];
-      const clean = tag.replace(/\s+/g, "_").replace(/[*]+/g, "");
+      const clean = tag.replace(/[*]+/g, "").trim();
       const targetPage = page;
       const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(clean)}&page=${targetPage}&limit=${fetchAmount}`;
 
@@ -777,14 +783,37 @@ export class PinService {
       } catch {}
     }
 
-    if (results.length === 0 && anchors.primaryCharacter && (!signal || !signal.aborted)) {
-      const cleanChar = anchors.primaryCharacter.replace(/\s+/g, "_").replace(/[*]+/g, "");
-      const targetPage = page;
-      const fallbackData = await this.executeSafebooruFetch(cleanChar, targetPage, limit, 1, signal);
-      for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
-        if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
-          results.push(item);
+    if (results.length === 0 && (!signal || !signal.aborted)) {
+      if (anchors.primaryCharacter) {
+        const cleanChar = anchors.primaryCharacter.replace(/[*]+/g, "").trim();
+        const fallbackData = await this.executeSafebooruFetch(cleanChar, page, limit, 1, signal);
+        for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
+          if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+            results.push(item);
+            if (results.length >= limit) break;
+          }
+        }
+      }
+      if (results.length === 0 && anchors.allAnchors.length > 0) {
+        for (const fallbackTag of anchors.allAnchors.slice(0, 3)) {
           if (results.length >= limit) break;
+          const cleanTag = fallbackTag.replace(/[*]+/g, "").trim();
+          const fallbackData = await this.executeSafebooruFetch(cleanTag, page, limit, 1, signal);
+          for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
+            if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+              results.push(item);
+              if (results.length >= limit) break;
+            }
+          }
+        }
+      }
+      if (results.length === 0) {
+        const feedData = await this.executeSafebooruFetch("", page, limit, 1, signal);
+        for (const item of feedData.map((p) => PinModel.fromSafebooru(p))) {
+          if (item.id !== pin.id && !results.some((r) => r.id === item.id)) {
+            results.push(item);
+            if (results.length >= limit) break;
+          }
         }
       }
     }

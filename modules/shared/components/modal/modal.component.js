@@ -157,6 +157,7 @@ export class ModalComponent {
         const entry = entries[0];
         if (entry && entry.isIntersecting && this.isOpen && this.hasMoreRelated) {
           if (this.isLoadingRelated) {
+            this.pendingRelatedPrefetch = true;
             if (this.relatedLoader) {
               this.relatedLoader.classList.remove("d-none");
             }
@@ -167,7 +168,7 @@ export class ModalComponent {
       },
       {
         root: this.backdrop,
-        rootMargin: "150px 0px"
+        rootMargin: "250px 0px"
       }
     );
     this.sentinelObserver.observe(this.sentinel);
@@ -435,9 +436,8 @@ export class ModalComponent {
     if (!this.hasMoreRelated || this.renderedRelatedPins.length === 0) return;
     if (!("IntersectionObserver" in window)) return;
 
-    const targetIndex = this.renderedRelatedPins.length >= 5
-      ? this.renderedRelatedPins.length - 4
-      : -1;
+    const len = this.renderedRelatedPins.length;
+    const targetIndex = len >= 5 ? len - 3 : Math.max(0, len - 1);
 
     if (targetIndex < 0) return;
     const targetPin = this.renderedRelatedPins[targetIndex];
@@ -463,7 +463,7 @@ export class ModalComponent {
       },
       {
         root: this.backdrop,
-        rootMargin: "0px"
+        rootMargin: "150px 0px"
       }
     );
 
@@ -573,6 +573,7 @@ export class ModalComponent {
 
       this.relatedPage = 1;
       this.hasMoreRelated = true;
+      this.emptyRelatedRetries = 0;
       this.relatedCache.set(pin.id, { pins: [], page: 1, hasMore: true });
       if (this.relatedContainer) {
         this.relatedContainer.classList.add("d-none");
@@ -636,7 +637,8 @@ export class ModalComponent {
       });
 
       if (uniqueRelated.length === 0) {
-        if (this.relatedPage < 4) {
+        this.emptyRelatedRetries = (this.emptyRelatedRetries || 0) + 1;
+        if (this.emptyRelatedRetries < 4) {
           this.relatedPage += 1;
           return this.loadRelatedPins(pin, false, isSilent, restoreScrollTop);
         }
@@ -645,6 +647,7 @@ export class ModalComponent {
         if (entry) entry.hasMore = false;
         return;
       }
+      this.emptyRelatedRetries = 0;
 
       const entry = this.relatedCache.get(pin.id);
       if (entry) {
