@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.1";
-import { StorageUtils } from "../../utils/storage.utils.js?v=5.1";
-import { API_CONFIG } from "../../../../app/app.config.js?v=5.1";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.4";
+import { StorageUtils } from "../../utils/storage.utils.js?v=5.4";
+import { API_CONFIG } from "../../../../app/app.config.js?v=5.4";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
@@ -14,8 +14,11 @@ export class ModalComponent {
     this.seenPinIds = new Set();
     this.renderedRelatedIds = new Set();
     this.renderedRelatedHashes = new Set();
+    this.spinnerSafetyTimer = null;
     this.relatedCache = new Map();
     this.pinStack = [];
+    this.relatedAbortController = null;
+    this.relatedSeq = 0;
     this.relatedPage = 1;
     this.hasMoreRelated = true;
     this.isLoadingRelated = false;
@@ -254,42 +257,72 @@ export class ModalComponent {
     if (!pin) return;
     this.activePin = pin;
     this.seenPinIds.add(pin.id);
+    if (this.seenPinIds.size > 50) {
+      const arr = Array.from(this.seenPinIds).slice(-25);
+      this.seenPinIds = new Set(arr);
+    }
     StorageUtils.recordViewedPin(pin);
 
     if (this.imgSpinner) {
       this.imgSpinner.classList.remove("d-none");
     }
 
+    if (this.spinnerSafetyTimer) {
+      clearTimeout(this.spinnerSafetyTimer);
+    }
+    this.spinnerSafetyTimer = setTimeout(() => {
+      if (this.imgSpinner) {
+        this.imgSpinner.classList.add("d-none");
+      }
+    }, 6000);
+
+    const sources = [
+      pin.previewUrl,
+      pin.sampleUrl,
+      pin.fullUrl,
+      pin.thumbnailUrl
+    ].filter(Boolean);
+    const uniqueSources = [...new Set(sources)];
+    let sourceIdx = 0;
+
     this.img.referrerPolicy = "no-referrer";
     this.img.alt = pin.title;
 
     this.img.onload = () => {
+      if (this.spinnerSafetyTimer) {
+        clearTimeout(this.spinnerSafetyTimer);
+      }
       if (this.imgSpinner) {
         this.imgSpinner.classList.add("d-none");
       }
     };
 
     this.img.onerror = () => {
-      if (pin.sampleUrl && this.img.src !== pin.sampleUrl) {
-        this.img.src = pin.sampleUrl;
-      } else if (pin.fullUrl && this.img.src !== pin.fullUrl) {
-        this.img.src = pin.fullUrl;
+      sourceIdx += 1;
+      if (sourceIdx < uniqueSources.length) {
+        this.img.src = uniqueSources[sourceIdx];
       } else {
+        if (this.spinnerSafetyTimer) {
+          clearTimeout(this.spinnerSafetyTimer);
+        }
         if (this.imgSpinner) {
           this.imgSpinner.classList.add("d-none");
         }
       }
     };
 
-    this.img.src = pin.previewUrl;
+    this.img.src = uniqueSources[0] || "";
 
     if (this.img.complete && this.img.naturalWidth > 0) {
+      if (this.spinnerSafetyTimer) {
+        clearTimeout(this.spinnerSafetyTimer);
+      }
       if (this.imgSpinner) {
         this.imgSpinner.classList.add("d-none");
       }
     }
 
-    if (pin.fullUrl && pin.fullUrl !== pin.previewUrl) {
+    if (pin.fullUrl && pin.fullUrl !== uniqueSources[0]) {
       const nativeImg = new Image();
       nativeImg.referrerPolicy = "no-referrer";
       nativeImg.onload = () => {
@@ -370,8 +403,10 @@ export class ModalComponent {
       this.relatedThresholdObserver.disconnect();
       this.relatedThresholdObserver = null;
     }
-    this.loadRelatedPins(pin, true);
-    this.resetModalScroll();
+    this.loadRelatedPins(pin, true, false, restoreScrollTop);
+    if (typeof restoreScrollTop !== "number" || restoreScrollTop <= 0) {
+      this.resetModalScroll();
+    }
   }
 
   setupRelatedColumns() {
@@ -499,11 +534,16 @@ export class ModalComponent {
     this.setupRelatedThresholdObserver();
   }
 
-  async loadRelatedPins(pin, isInitial = true, isSilent = false) {
+  async loadRelatedPins(pin, isInitial = true, isSilent = false, restoreScrollTop = null) {
     if (!this.relatedGrid) return;
     if (isInitial) {
+      if (this.relatedAbortController) {
+        this.relatedAbortController.abort();
+      }
+      this.relatedAbortController = new AbortController();
       this.setupRelatedColumns();
       this.renderedRelatedIds.clear();
+      this.renderedRelatedHashes.clear();
       this.renderedRelatedPins = [];
 
       if (this.relatedCache.has(pin.id)) {
@@ -512,6 +552,9 @@ export class ModalComponent {
         this.hasMoreRelated = cached.hasMore;
         cached.pins.forEach((p) => {
           this.renderedRelatedIds.add(p.id);
+          const url = p.previewUrl || p.sampleUrl || p.image || "";
+          const m = url.match(/([a-f0-9]{32})/i);
+          if (m) this.renderedRelatedHashes.add(m[1].toLowerCase());
           this.seenPinIds.add(p.id);
         });
         if (this.relatedContainer) {
@@ -545,8 +588,15 @@ export class ModalComponent {
       this.relatedLoader.classList.remove("d-none");
     }
 
+    this.relatedSeq = (this.relatedSeq || 0) + 1;
+    const currentSeq = this.relatedSeq;
+    const signal = this.relatedAbortController ? this.relatedAbortController.signal : null;
+
     try {
-      const related = await this.fetchRelatedPins(pin, this.relatedPage, 8, this.seenPinIds);
+      const related = await this.fetchRelatedPins(pin, this.relatedPage, 8, this.renderedRelatedIds, signal);
+      if (currentSeq !== this.relatedSeq || !this.isOpen || (this.activePin && this.activePin.id !== pin.id)) {
+        return;
+      }
       if (!Array.isArray(related) || related.length === 0) {
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
@@ -612,18 +662,22 @@ export class ModalComponent {
         });
       }
     } catch {
-      this.hasMoreRelated = false;
-      const entry = this.relatedCache.get(pin.id);
-      if (entry) entry.hasMore = false;
-    } finally {
-      this.isLoadingRelated = false;
-      if (this.relatedLoader) {
-        this.relatedLoader.classList.add("d-none");
+      if (currentSeq === this.relatedSeq) {
+        this.hasMoreRelated = false;
+        const entry = this.relatedCache.get(pin.id);
+        if (entry) entry.hasMore = false;
       }
-      if (this.pendingRelatedPrefetch) {
-        this.pendingRelatedPrefetch = false;
-        if (this.hasMoreRelated) {
-          this.loadNextRelatedBatch(true);
+    } finally {
+      if (currentSeq === this.relatedSeq) {
+        this.isLoadingRelated = false;
+        if (this.relatedLoader) {
+          this.relatedLoader.classList.add("d-none");
+        }
+        if (this.pendingRelatedPrefetch) {
+          this.pendingRelatedPrefetch = false;
+          if (this.hasMoreRelated) {
+            this.loadNextRelatedBatch(true);
+          }
         }
       }
     }
@@ -658,6 +712,12 @@ export class ModalComponent {
     document.body.classList.remove("modal-open");
     this.activePin = null;
     this.pinStack = [];
+    if (this.relatedAbortController) {
+      this.relatedAbortController.abort();
+      this.relatedAbortController = null;
+    }
+    this.relatedSeq = 0;
+    this.seenPinIds.clear();
     if (this.relatedThresholdObserver) {
       this.relatedThresholdObserver.disconnect();
       this.relatedThresholdObserver = null;
@@ -690,6 +750,12 @@ export class ModalComponent {
     document.body.classList.remove("modal-open");
     this.activePin = null;
     this.pinStack = [];
+    if (this.relatedAbortController) {
+      this.relatedAbortController.abort();
+      this.relatedAbortController = null;
+    }
+    this.relatedSeq = 0;
+    this.seenPinIds.clear();
     if (this.relatedThresholdObserver) {
       this.relatedThresholdObserver.disconnect();
       this.relatedThresholdObserver = null;

@@ -1,4 +1,4 @@
-import { isCharacterTag } from "../utils/storage.utils.js?v=5.0";
+import { isCharacterTag } from "../utils/storage.utils.js?v=5.4";
 
 const decodeHtmlEntities = (str) => {
   if (typeof str !== "string" || !str.includes("&")) return str || "";
