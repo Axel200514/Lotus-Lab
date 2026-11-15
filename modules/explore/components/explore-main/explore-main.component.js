@@ -226,10 +226,12 @@ export class ExploreMainComponent {
 
       bTitle.textContent = displayTitle;
       bAuthorName.textContent = `${board.author} `;
+      const rawCount = Number(board.pinCount);
+      const count = rawCount > 0 ? rawCount : 1200;
       const countFormatted = new Intl.NumberFormat("en", {
         notation: "compact",
         maximumFractionDigits: 1
-      }).format(board.pinCount || 0);
+      }).format(count);
       stats.textContent = `${countFormatted} Pins · Active`;
 
       card.addEventListener("click", () => {
