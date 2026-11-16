@@ -1,10 +1,10 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.5";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.5";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.8";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.8";
 
-const CACHE_KEY = "lotus_explore_cache_v26";
+const CACHE_KEY = "lotus_explore_cache_v32";
 const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
 
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v26";
+const IDEAS_CACHE_KEY = "lotus_ideas_cache_v32";
 const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class ExploreService {
@@ -13,7 +13,7 @@ export class ExploreService {
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
     try {
-      for (let i = 1; i <= 25; i++) {
+      for (let i = 1; i <= 31; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
         localStorage.removeItem(`lotus_ideas_cache_v${i}`);
       }
@@ -91,14 +91,7 @@ export class ExploreService {
   }
 
   isValidPayload(data) {
-    if (!data || !Array.isArray(data.boards) || data.boards.length < 8) {
-      return false;
-    }
-    const validPins = data.boards.filter((b) => b && Number(b.pinCount) > 0);
-    if (validPins.length < Math.floor(data.boards.length / 2)) {
-      return false;
-    }
-    return true;
+    return Boolean(data && Array.isArray(data.boards) && data.boards.length >= 4);
   }
 
   async fetchExploreData() {

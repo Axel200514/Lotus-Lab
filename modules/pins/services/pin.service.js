@@ -1,6 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.5";
-import { PinModel } from "../../shared/models/pin.model.js?v=5.5";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.5";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.8";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.8";
+import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.8";
 
 export class PinService {
   constructor() {

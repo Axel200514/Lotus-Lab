@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=5.5";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.5";
+import { ExploreService } from "../../services/explore.service.js?v=5.8";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.8";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -203,7 +203,6 @@ export class ExploreMainComponent {
       const sub2 = clone.querySelector(".board-sub-2");
       const bTitle = clone.querySelector(".board-title");
       const bAuthorName = clone.querySelector(".author-name");
-      const stats = clone.querySelector(".board-stats");
 
       const displayTitle = this.cleanText(board.title);
       mainImg.src = board.previews[0];
@@ -226,13 +225,6 @@ export class ExploreMainComponent {
 
       bTitle.textContent = displayTitle;
       bAuthorName.textContent = `${board.author} `;
-      const rawCount = Number(board.pinCount);
-      const count = rawCount > 0 ? rawCount : 1200;
-      const countFormatted = new Intl.NumberFormat("en", {
-        notation: "compact",
-        maximumFractionDigits: 1
-      }).format(count);
-      stats.textContent = `${countFormatted} Pins · Active`;
 
       card.addEventListener("click", () => {
         if (typeof this.onTopicSelect === "function") {

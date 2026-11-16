@@ -153,12 +153,6 @@
   font-size: 0.65rem;
 }
 
-.board-stats {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
 .popular-row {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -485,9 +479,6 @@
   }
   .board-author {
     font-size: 0.76rem;
-  }
-  .board-stats {
-    font-size: 0.72rem;
   }
   .popular-row {
     grid-template-columns: repeat(4, 1fr);

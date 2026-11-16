@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.5";
-import { StorageUtils } from "../../utils/storage.utils.js?v=5.5";
-import { API_CONFIG } from "../../../../app/app.config.js?v=5.5";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.8";
+import { StorageUtils } from "../../utils/storage.utils.js?v=5.8";
+import { API_CONFIG } from "../../../../app/app.config.js?v=5.8";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
