@@ -1,7 +1,7 @@
 const STORAGE_KEY = "lotus_saved_pins";
 const RECENT_SEARCHES_KEY = "lotus_recent_searches";
 const VIEWED_PINS_KEY = "lotus_viewed_pins_history";
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v22";
+export const IDEAS_CACHE_KEY = "lotus_ideas_cache_v32";
 const FEED_SEEN_KEY = "lotus_feed_seen_ids";
 
 export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|sky|scenery|weapon|sword|tree|clouds|flowers|food|animal|room|window|outdoors|indoors|night|day|sunlight|sunset|light|shadow|gradient)(?:_|$)/i;
@@ -90,7 +90,8 @@ export class StorageUtils {
         height: pin.height,
         ...(pin.fullUrl && pin.fullUrl !== (pin.previewUrl || pin.sampleUrl || pin.image) ? { fullUrl: pin.fullUrl } : {}),
         ...(pin.author && pin.author !== "Visual Artist" ? { author: pin.author } : {}),
-        ...(pin.source ? { source: pin.source } : {})
+        ...(pin.source ? { source: pin.source } : {}),
+        ...(Array.isArray(pin.tags) && pin.tags.length > 0 ? { tags: pin.tags.slice(0, 16) } : {})
       };
       list.unshift(compact);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
@@ -197,6 +198,7 @@ export class StorageUtils {
   static clearIdeasCache() {
     try {
       localStorage.removeItem(IDEAS_CACHE_KEY);
+      localStorage.removeItem("lotus_ideas_cache_v22");
       localStorage.removeItem("lotus_ideas_cache_v21");
       localStorage.removeItem("lotus_ideas_cache_v20");
       localStorage.removeItem("lotus_ideas_cache_v19");

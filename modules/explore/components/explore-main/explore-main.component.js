@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=5.9";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.9";
+import { ExploreService } from "../../services/explore.service.js?v=6.0";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.0";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -17,11 +17,10 @@ export class ExploreMainComponent {
   async render(forceRefresh = false) {
     this.container.textContent = "";
 
-    const [boards, popularSections, ideas] = await Promise.all([
-      this.service.getFeaturedBoards(forceRefresh),
-      this.service.getPopularSections(forceRefresh),
-      this.service.getIdeasForYou(forceRefresh)
-    ]);
+    const exploreData = await this.service.getExploreData(forceRefresh);
+    const boards = exploreData.boards || [];
+    const popularSections = exploreData.popularSections || [];
+    const ideas = await this.service.getIdeasForYou(forceRefresh, exploreData);
 
     const recentSearches = StorageUtils.getRecentSearches();
 

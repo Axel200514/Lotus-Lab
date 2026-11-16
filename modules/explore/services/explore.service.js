@@ -1,21 +1,22 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.9";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.9";
+import { API_CONFIG } from "../../../app/app.config.js?v=6.0";
+import { StorageUtils, isCharacterTag, IDEAS_CACHE_KEY } from "../../shared/utils/storage.utils.js?v=6.0";
 
-const CACHE_KEY = "lotus_explore_cache_v32";
-const CACHE_TTL_MS = 8 * 60 * 60 * 1000;
-
-const IDEAS_CACHE_KEY = "lotus_ideas_cache_v32";
-const IDEAS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_KEY = "lotus_explore_cache_v33";
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
 export class ExploreService {
   constructor() {
     this.memoryCache = null;
+    this.memoryCacheTimestamp = 0;
     this.pendingPromise = null;
     this.ideasMemoryCache = null;
+    this.ideasMemoryTimestamp = 0;
     try {
-      for (let i = 1; i <= 31; i++) {
+      for (let i = 1; i <= 32; i++) {
         localStorage.removeItem(`lotus_explore_cache_v${i}`);
-        localStorage.removeItem(`lotus_ideas_cache_v${i}`);
+        if (i <= 31) {
+          localStorage.removeItem(`lotus_ideas_cache_v${i}`);
+        }
       }
       localStorage.removeItem("lotus_explore_cache");
       localStorage.removeItem("lotus_ideas_for_you_cache");
@@ -46,19 +47,24 @@ export class ExploreService {
             this.memoryCache = sanitized;
             return sanitized;
           }
-          this.pendingPromise = null;
           return this.memoryCache || data;
         })
         .catch(() => {
-          this.pendingPromise = null;
           return this.getStoredCache() || { boards: [], popularSections: [] };
+        })
+        .finally(() => {
+          this.pendingPromise = null;
         });
     }
     return this.pendingPromise;
   }
 
   getStoredCache() {
-    if (this.memoryCache) return this.memoryCache;
+    if (this.memoryCache && (!this.memoryCacheTimestamp || Date.now() - this.memoryCacheTimestamp <= CACHE_TTL_MS)) {
+      return this.memoryCache;
+    }
+    this.memoryCache = null;
+    this.memoryCacheTimestamp = 0;
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
@@ -69,6 +75,7 @@ export class ExploreService {
         return null;
       }
       if (this.isValidPayload(parsed.data)) {
+        this.memoryCacheTimestamp = parsed.timestamp;
         return parsed.data;
       }
       localStorage.removeItem(CACHE_KEY);
@@ -79,11 +86,13 @@ export class ExploreService {
   }
 
   saveStoredCache(data) {
+    const timestamp = Date.now();
+    this.memoryCacheTimestamp = timestamp;
     try {
       localStorage.setItem(
         CACHE_KEY,
         JSON.stringify({
-          timestamp: Date.now(),
+          timestamp,
           data
         })
       );
@@ -130,20 +139,33 @@ export class ExploreService {
     StorageUtils.notifyTasteDirty();
   }
 
-  async getIdeasForYou(forceRefresh = false) {
+  needsIdeasRefresh() {
+    if (!this.ideasMemoryCache) return true;
+    try {
+      if (!localStorage.getItem(IDEAS_CACHE_KEY)) return true;
+    } catch {}
+    return StorageUtils.shouldRefreshIdeas(this.ideasMemoryTimestamp);
+  }
+
+  async getIdeasForYou(forceRefresh = false, preloadedExploreData = null) {
     try {
       localStorage.removeItem("lotus_ideas_for_you_cache");
     } catch {}
 
     if (!forceRefresh) {
-      if (this.ideasMemoryCache && !StorageUtils.shouldRefreshIdeas(this.ideasMemoryTimestamp)) {
+      let hasStoredIdeas = false;
+      try {
+        hasStoredIdeas = Boolean(localStorage.getItem(IDEAS_CACHE_KEY));
+      } catch {}
+
+      if (this.ideasMemoryCache && hasStoredIdeas && !StorageUtils.shouldRefreshIdeas(this.ideasMemoryTimestamp)) {
         return this.ideasMemoryCache;
       }
       try {
         const raw = localStorage.getItem(IDEAS_CACHE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && parsed.timestamp && Array.isArray(parsed.data) && parsed.data.length >= 5) {
+          if (parsed && parsed.timestamp && Array.isArray(parsed.data) && parsed.data.length > 0) {
             if (!StorageUtils.shouldRefreshIdeas(parsed.timestamp)) {
               this.ideasMemoryCache = parsed.data;
               this.ideasMemoryTimestamp = parsed.timestamp;
@@ -155,7 +177,7 @@ export class ExploreService {
       } catch {}
     }
 
-    const ideas = await this.buildIdeasForYouPayload();
+    const ideas = await this.buildIdeasForYouPayload(preloadedExploreData);
     this.ideasMemoryCache = ideas;
     this.ideasMemoryTimestamp = Date.now();
     StorageUtils.resetTasteDirty();
@@ -171,8 +193,8 @@ export class ExploreService {
     return ideas;
   }
 
-  async buildIdeasForYouPayload() {
-    const exploreData = await this.getExploreData();
+  async buildIdeasForYouPayload(preloadedExploreData = null) {
+    const exploreData = preloadedExploreData || (await this.getExploreData());
     const savedPins = StorageUtils.getSavedPins();
     const recentSearches = StorageUtils.getRecentSearches();
 
@@ -304,35 +326,50 @@ export class ExploreService {
 
   clearIdeasCache() {
     this.ideasMemoryCache = null;
+    this.ideasMemoryTimestamp = 0;
     StorageUtils.clearIdeasCache();
+  }
+
+  getPinImageUrl(pin) {
+    if (!pin || typeof pin !== "object") return "";
+    return pin.previewUrl || pin.image || pin.sampleUrl || pin.fullUrl || "";
+  }
+
+  pinMatchesQuery(pin, cleanQ) {
+    if (!pin || typeof pin !== "object") return false;
+    if (Array.isArray(pin.tags)) {
+      const hasTag = pin.tags.some((t) => {
+        const raw = typeof t === "string" ? t : t.query || t.label;
+        return (raw || "").toLowerCase().includes(cleanQ);
+      });
+      if (hasTag) return true;
+    }
+    const cleanTitle = (pin.title || "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (cleanTitle && cleanTitle.includes(cleanQ)) return true;
+    const cleanChar = (pin.character || "").trim().toLowerCase().replace(/\s+/g, "_");
+    return Boolean(cleanChar && cleanChar.includes(cleanQ));
   }
 
   findPreviewForQuery(query, savedPins, exploreData, usedPreviews = new Set()) {
     const cleanQ = query.toLowerCase();
 
     const matchingSaved = savedPins.find((p) => {
-      if (!p || !Array.isArray(p.tags) || !p.previewUrl) return false;
-      if (usedPreviews.has(p.previewUrl)) return false;
-      return p.tags.some((t) => {
-        const raw = typeof t === "string" ? t : t.query || t.label;
-        return (raw || "").toLowerCase().includes(cleanQ);
-      });
+      const img = this.getPinImageUrl(p);
+      if (!img || usedPreviews.has(img)) return false;
+      return this.pinMatchesQuery(p, cleanQ);
     });
-    if (matchingSaved && matchingSaved.previewUrl) {
-      return matchingSaved.previewUrl;
+    if (matchingSaved) {
+      return this.getPinImageUrl(matchingSaved);
     }
 
     const viewedPins = StorageUtils.getViewedPins();
     const matchingViewed = viewedPins.find((p) => {
-      if (!p || !Array.isArray(p.tags) || !p.previewUrl) return false;
-      if (usedPreviews.has(p.previewUrl)) return false;
-      return p.tags.some((t) => {
-        const raw = typeof t === "string" ? t : t.query || t.label;
-        return (raw || "").toLowerCase().includes(cleanQ);
-      });
+      const img = this.getPinImageUrl(p);
+      if (!img || usedPreviews.has(img)) return false;
+      return this.pinMatchesQuery(p, cleanQ);
     });
-    if (matchingViewed && matchingViewed.previewUrl) {
-      return matchingViewed.previewUrl;
+    if (matchingViewed) {
+      return this.getPinImageUrl(matchingViewed);
     }
 
     if (Array.isArray(exploreData.boards)) {
@@ -397,6 +434,15 @@ export class ExploreService {
     return true;
   }
 
+  shuffleList(list) {
+    const arr = [...list];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   async sanitizeExploreData(data) {
     if (!data || !Array.isArray(data.boards)) return data;
     const boards = data.boards;
@@ -419,18 +465,30 @@ export class ExploreService {
       validSections.push(s);
     });
 
-    const targetCount = Math.max(4, rawSections.length);
+    const targetCount = Math.max(6, rawSections.length);
     if (validSections.length < targetCount) {
       const candidates = await this.getReplacementCandidates(existingBoardKeys, seenSectionKeys);
-      for (const candTag of candidates) {
-        if (validSections.length >= targetCount) break;
-        const normCand = this.normalizeTopicKey(candTag);
-        if (existingBoardKeys.has(normCand) || seenSectionKeys.has(normCand)) continue;
-
-        const replacementSection = await this.fetchSectionForTag(candTag);
-        if (replacementSection && replacementSection.thumbnails.length >= 4) {
-          seenSectionKeys.add(normCand);
-          validSections.push(replacementSection);
+      let cursor = 0;
+      while (validSections.length < targetCount && cursor < candidates.length && cursor < 18) {
+        const batch = candidates.slice(cursor, cursor + 3);
+        cursor += batch.length;
+        const settled = await Promise.allSettled(
+          batch.map((candTag) => {
+            const page = Math.floor(Math.random() * 3) + 1;
+            return this.fetchSectionForTag(candTag, page);
+          })
+        );
+        for (const res of settled) {
+          if (validSections.length >= targetCount) break;
+          if (res.status !== "fulfilled" || !res.value) continue;
+          const section = res.value;
+          const normTitle = this.normalizeTopicKey(section.title);
+          const normTag = this.normalizeTopicKey(section.tag);
+          if (!normTitle || existingBoardKeys.has(normTitle) || existingBoardKeys.has(normTag) || seenSectionKeys.has(normTitle)) {
+            continue;
+          }
+          seenSectionKeys.add(normTitle);
+          validSections.push(section);
         }
       }
     }
@@ -443,90 +501,129 @@ export class ExploreService {
 
   async getReplacementCandidates(existingBoardKeys, seenSectionKeys) {
     const dynamicKnownTags = new Set([...existingBoardKeys, ...seenSectionKeys]);
-    const candidates = [];
+    const discoveryCandidates = [];
+    const personalCandidates = [];
     const seen = new Set();
 
-    const addCand = (rawTag) => {
+    const ideaKeys = new Set();
+    try {
+      const rawIdeas = localStorage.getItem(IDEAS_CACHE_KEY);
+      if (rawIdeas) {
+        const parsed = JSON.parse(rawIdeas);
+        if (parsed && Array.isArray(parsed.data)) {
+          parsed.data.forEach((item) => {
+            const kt = this.normalizeTopicKey(item?.title);
+            const kq = this.normalizeTopicKey(item?.query);
+            if (kt) ideaKeys.add(kt);
+            if (kq) ideaKeys.add(kq);
+          });
+        }
+      }
+    } catch {}
+
+    const GENERIC_SECTION_NOISE = /^(?:original|multiple_views|comic|4koma|genderswap|photo|skull|meme|artist_name|monochrome|wallpaper)$/i;
+
+    const tryRegister = (rawTag, targetList, skipIdeas = false) => {
       if (!rawTag || typeof rawTag !== "string") return;
       const clean = rawTag.trim().toLowerCase().replace(/\s+/g, "_");
-      if (!isCharacterTag(clean)) return;
+      if (!isCharacterTag(clean) || GENERIC_SECTION_NOISE.test(clean)) return;
       const norm = this.normalizeTopicKey(clean);
+      if (!norm || norm.length < 3) return;
       if (existingBoardKeys.has(norm) || seenSectionKeys.has(norm) || seen.has(norm)) return;
+      if (skipIdeas && ideaKeys.has(norm)) return;
       seen.add(norm);
-      candidates.push(clean);
+      targetList.push(clean);
     };
 
+    try {
+      const randomPage = Math.floor(Math.random() * 25) + 1;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=&page=${randomPage}&limit=50`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const posts = await res.json();
+        const freq = new Map();
+        if (Array.isArray(posts)) {
+          posts.forEach((p) => {
+            (p.tags || "").split(" ").forEach((t) => {
+              const clean = t.trim().toLowerCase();
+              if (StorageUtils.isThematicTag(clean, dynamicKnownTags)) {
+                freq.set(clean, (freq.get(clean) || 0) + 1);
+              }
+            });
+          });
+
+          const highPriority = [];
+          const secondary = [];
+          for (const [tag, count] of freq.entries()) {
+            if (count >= 2 || (tag.includes("(") && tag.includes(")"))) {
+              highPriority.push(tag);
+            } else {
+              secondary.push(tag);
+            }
+          }
+          this.shuffleList(highPriority).forEach((tag) => tryRegister(tag, discoveryCandidates, true));
+          this.shuffleList(secondary).forEach((tag) => tryRegister(tag, discoveryCandidates, true));
+        }
+      }
+    } catch {}
+
     const userTaste = StorageUtils.getUserTasteTags(dynamicKnownTags);
-    userTaste.forEach(addCand);
+    const rawPersonal = [...userTaste];
 
     const saved = StorageUtils.getSavedPins();
     saved.forEach((p) => {
-      if (p.title) addCand(p.title);
+      if (p.title) rawPersonal.push(p.title);
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => {
           const raw = typeof t === "string" ? t : t.query || t.label;
-          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) addCand(raw);
+          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) rawPersonal.push(raw);
         });
       }
     });
 
     const viewed = StorageUtils.getViewedPins();
     viewed.forEach((p) => {
-      if (p.title) addCand(p.title);
+      if (p.title) rawPersonal.push(p.title);
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => {
           const raw = typeof t === "string" ? t : t.query || t.label;
-          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) addCand(raw);
+          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) rawPersonal.push(raw);
         });
       }
     });
 
     const searches = StorageUtils.getRecentSearches();
     searches.forEach((s) => {
-      if (StorageUtils.isThematicTag(s, dynamicKnownTags)) addCand(s);
+      if (StorageUtils.isThematicTag(s, dynamicKnownTags)) rawPersonal.push(s);
     });
 
-    if (candidates.length < 5) {
-      try {
+    this.shuffleList(rawPersonal).forEach((tag) => tryRegister(tag, personalCandidates, false));
+
+    return [...discoveryCandidates, ...personalCandidates];
+  }
+
+  async fetchSectionForTag(tag, page = 1) {
+    try {
+      const fetchPosts = async (targetPage) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=&limit=25`, {
+        const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&page=${targetPage}&limit=16`, {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-        if (res.ok) {
-          const posts = await res.json();
-          const freq = new Map();
-          if (Array.isArray(posts)) {
-            posts.forEach((p) => {
-              (p.tags || "").split(" ").forEach((t) => {
-                const clean = t.trim().toLowerCase();
-                if (StorageUtils.isThematicTag(clean, dynamicKnownTags)) {
-                  freq.set(clean, (freq.get(clean) || 0) + 1);
-                }
-              });
-            });
-            [...freq.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .forEach(([tag]) => addCand(tag));
-          }
-        }
-      } catch {}
-    }
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      };
 
-    return candidates;
-  }
-
-  async fetchSectionForTag(tag) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&limit=16`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) return null;
-      const posts = await res.json();
+      let posts = await fetchPosts(page);
+      if (posts.length < 4 && page > 1) {
+        posts = await fetchPosts(1);
+      }
       if (!Array.isArray(posts) || posts.length < 4) return null;
 
       const extractHash = (p, url) => {
