@@ -1,15 +1,17 @@
 body.modal-open {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.86);
-  z-index: 100;
+  z-index: 500;
   display: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 48px 24px 80px;
   opacity: 0;
   transition: opacity var(--transition-fast);
@@ -57,7 +59,7 @@ body.modal-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 600;
   cursor: pointer;
   will-change: transform;
   transition: background-color var(--transition-fast), transform var(--transition-spring), border-color var(--transition-fast);
@@ -446,8 +448,10 @@ body.modal-open {
   transition: transform var(--transition-fast);
 }
 
-.modal-related-card:hover {
-  transform: scale(1.02);
+@media (hover: hover) {
+  .modal-related-card:hover {
+    transform: scale(1.02);
+  }
 }
 
 .modal-related-img {
@@ -657,7 +661,7 @@ body.modal-open {
     top: 20px;
     left: 20px;
     right: auto;
-    z-index: 250;
+    z-index: 600;
   }
 }
 
@@ -724,7 +728,7 @@ body.modal-open {
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: var(--radius-full);
-    z-index: 250;
+    z-index: 600;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   }
   .modal-content-wrap {

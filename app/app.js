@@ -13,6 +13,11 @@ import { ExploreMainComponent } from "../modules/explore/components/explore-main
 import { ExploreService } from "../modules/explore/services/explore.service.js?v=5.9";
 import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=5.9";
 
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+window.scrollTo(0, 0);
+
 const FALLBACK_TAGS = [
   { label: "Genshin Impact", query: "genshin_impact" },
   { label: "Honkai Star Rail", query: "honkai:_star_rail" },
@@ -250,6 +255,11 @@ class LotusApp {
     this.initRouter();
     this.initIntersectionObserver();
     this.initPullToRefresh();
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        window.scrollTo(0, 0);
+      }
+    });
     window._app = this;
   }
 
@@ -557,7 +567,7 @@ class LotusApp {
     this.loader.hideEmpty();
     this.pinService.resetSession();
     this.fetchMorePins(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   }
 
   showHomeTopicView(topic) {
@@ -590,7 +600,7 @@ class LotusApp {
     this.loader.hideEmpty();
     this.pinService.resetTopicSession();
     this.fetchMorePins(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   }
 
   showExploreTopicView(topic, title) {
@@ -626,7 +636,7 @@ class LotusApp {
     this.loader.hideEmpty();
     this.pinService.resetTopicSession();
     this.fetchMorePins(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   }
 
   showSearchView(query) {
@@ -658,7 +668,7 @@ class LotusApp {
     this.loader.hideEmpty();
     this.pinService.resetSearchSession();
     this.fetchMorePins(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo(0, 0);
   }
 
   async showExploreView() {
@@ -929,13 +939,6 @@ class LotusApp {
           this.pendingPrefetch = false;
           if (this.hasMore) {
             this.fetchMorePins(false, true);
-            return;
-          }
-        }
-        if (this.hasMore && this.sentinel) {
-          const rect = this.sentinel.getBoundingClientRect();
-          if (rect.top <= window.innerHeight + 800) {
-            this.fetchMorePins();
           }
         }
       }

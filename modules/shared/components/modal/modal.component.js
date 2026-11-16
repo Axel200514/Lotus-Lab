@@ -168,7 +168,7 @@ export class ModalComponent {
       },
       {
         root: this.backdrop,
-        rootMargin: "250px 0px"
+        rootMargin: "300px 0px"
       }
     );
     this.sentinelObserver.observe(this.sentinel);
@@ -463,7 +463,7 @@ export class ModalComponent {
       },
       {
         root: this.backdrop,
-        rootMargin: "150px 0px"
+        rootMargin: "300px 0px"
       }
     );
 
@@ -500,6 +500,8 @@ export class ModalComponent {
 
       const rawRatio = relPin.height && relPin.width ? relPin.height / relPin.width : 1.333;
       const ratio = Math.min(Math.max(rawRatio, 0.55), 1.85);
+
+      card.style.aspectRatio = `${relPin.width || 400} / ${Math.round((relPin.width || 400) * ratio)}`;
 
       img.referrerPolicy = "no-referrer";
       img.loading = "lazy";
