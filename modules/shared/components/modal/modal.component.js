@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.8";
-import { StorageUtils } from "../../utils/storage.utils.js?v=5.8";
-import { API_CONFIG } from "../../../../app/app.config.js?v=5.8";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=5.9";
+import { StorageUtils, isArtworkDuplicate } from "../../utils/storage.utils.js?v=5.9";
+import { API_CONFIG } from "../../../../app/app.config.js?v=5.9";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
@@ -628,6 +628,8 @@ export class ModalComponent {
 
       const uniqueRelated = related.filter((relPin) => {
         if (!relPin || !relPin.id || this.renderedRelatedIds.has(relPin.id)) return false;
+        if (this.activePin && isArtworkDuplicate(this.activePin, relPin)) return false;
+        if (this.renderedRelatedPins.some((existing) => isArtworkDuplicate(existing, relPin))) return false;
         const hash = extractHash(relPin);
         if (hash && this.renderedRelatedHashes.has(hash)) return false;
         this.renderedRelatedIds.add(relPin.id);
@@ -728,6 +730,7 @@ export class ModalComponent {
     this.pendingRelatedPrefetch = false;
     this.renderedRelatedPins = [];
     this.renderedRelatedIds.clear();
+    this.renderedRelatedHashes.clear();
     this.relatedCache.clear();
     this.resetModalScroll();
 
@@ -766,6 +769,7 @@ export class ModalComponent {
     this.pendingRelatedPrefetch = false;
     this.renderedRelatedPins = [];
     this.renderedRelatedIds.clear();
+    this.renderedRelatedHashes.clear();
     this.relatedCache.clear();
     this.resetModalScroll();
 

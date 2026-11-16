@@ -1,6 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=5.8";
-import { PinModel } from "../../shared/models/pin.model.js?v=5.8";
-import { StorageUtils, isCharacterTag } from "../../shared/utils/storage.utils.js?v=5.8";
+import { API_CONFIG } from "../../../app/app.config.js?v=5.9";
+import { PinModel } from "../../shared/models/pin.model.js?v=5.9";
+import { StorageUtils, isCharacterTag, isArtworkDuplicate } from "../../shared/utils/storage.utils.js?v=5.9";
 
 export class PinService {
   constructor() {
@@ -730,7 +730,7 @@ export class PinService {
       if (queryTags.length >= 6) break;
     }
 
-    const fetchAmount = Math.max(16, limit * 2);
+    const fetchAmount = Math.max(24, limit * 3);
 
     for (let i = 0; i < queryTags.length; i++) {
       if (results.length >= limit) break;
@@ -762,6 +762,9 @@ export class PinService {
               for (const item of mapped) {
                 const artKey = item.artworkKey || item.id;
                 if (!collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+                  if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
+                    continue;
+                  }
                   collectedIds.add(item.id);
                   collectedArtworks.add(artKey);
                   results.push(item);
@@ -781,6 +784,9 @@ export class PinService {
         for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
           const artKey = item.artworkKey || item.id;
           if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+            if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
+              continue;
+            }
             collectedIds.add(item.id);
             collectedArtworks.add(artKey);
             results.push(item);
@@ -796,6 +802,9 @@ export class PinService {
           for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
             const artKey = item.artworkKey || item.id;
             if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+              if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
+                continue;
+              }
               collectedIds.add(item.id);
               collectedArtworks.add(artKey);
               results.push(item);
@@ -809,6 +818,9 @@ export class PinService {
         for (const item of feedData.map((p) => PinModel.fromSafebooru(p))) {
           const artKey = item.artworkKey || item.id;
           if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+            if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
+              continue;
+            }
             collectedIds.add(item.id);
             collectedArtworks.add(artKey);
             results.push(item);

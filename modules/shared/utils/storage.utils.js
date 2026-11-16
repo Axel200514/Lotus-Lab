@@ -17,6 +17,42 @@ export const isCharacterTag = (tag) => {
   return true;
 };
 
+export const isArtworkDuplicate = (a, b) => {
+  if (!a || !b) return false;
+  if (a.id && b.id && a.id === b.id) return true;
+  if (a.artworkKey && b.artworkKey && !a.artworkKey.startsWith("sb_") && a.artworkKey === b.artworkKey) return true;
+
+  const getHash = (p) => ((p.previewUrl || p.sampleUrl || p.fullUrl || p.image || "").match(/([a-f0-9]{32})/i) || [])[1]?.toLowerCase() || "";
+  const hA = getHash(a), hB = getHash(b);
+  if (hA && hB && hA === hB) return true;
+
+  const srcA = typeof a.source === "string" ? a.source : "";
+  const srcB = typeof b.source === "string" ? b.source : "";
+  const rA = a.width && a.height ? a.width / a.height : 0;
+  const rB = b.width && b.height ? b.width / b.height : 0;
+  const ratioDiff = rA && rB ? Math.abs(rA - rB) : 1;
+
+  if (srcA && srcB && (srcA.includes("x.com") || srcA.includes("twitter.com")) && (srcB.includes("x.com") || srcB.includes("twitter.com"))) {
+    const root = (s) => (s.match(/(?:twitter\.com|x\.com)\/([a-zA-Z0-9_]+)/i)?.[1] || "").toLowerCase().replace(/(?:_?jp|_?en|_?kr|_?cn|_?tw|_?official|_?pr)$/i, "");
+    if (root(srcA) && root(srcA) === root(srcB) && ratioDiff < 0.02) return true;
+  }
+
+  const charA = (a.character || a.title || "").toLowerCase().trim();
+  const charB = (b.character || b.title || "").toLowerCase().trim();
+  if (charA && charB && charA === charB) {
+    const setA = new Set((a.tags || []).map((t) => (typeof t === "object" ? t.query || t.label : String(t)).toLowerCase().trim()).filter(Boolean));
+    const setB = new Set((b.tags || []).map((t) => (typeof t === "object" ? t.query || t.label : String(t)).toLowerCase().trim()).filter(Boolean));
+    const common = [...setA].filter((t) => setB.has(t)).length;
+    const union = setA.size + setB.size - common;
+    const jaccard = union > 0 ? common / union : 0;
+
+    if (a.width === b.width && a.height === b.height && a.width > 0 && jaccard >= 0.75 && common >= 11) return true;
+    if (ratioDiff < 0.01 && a.width > 0 && b.width > 0 && jaccard >= 0.85 && common >= 13) return true;
+  }
+
+  return false;
+};
+
 export class StorageUtils {
   static isThematicTag(tag) {
     return isCharacterTag(tag);
