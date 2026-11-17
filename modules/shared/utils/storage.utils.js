@@ -7,13 +7,25 @@ const FEED_SEEN_KEY = "lotus_feed_seen_ids";
 export const ATTR_REGEX = /(?:^|_)(hair|streaks|eyes|skin|clothes|dress|skirt|shirt|pants|shoes|socks|boots|sleeves|sweater|jacket|coat|hoodie|uniform|lapels|collar|cuffs|zipper|earrings|necklace|cape|cloak|swimsuit|bikini|gloves|ribbon|bow|belt|scarf|hat|cap|body|torso|arm|leg|hand|fingers|neck|mouth|smile|blush|ahoge|twintails|ponytail|bangs|braid|holding|eyebrows|teeth|tongue|breasts|ass|belly|pocket|print|clenched|cropped|symbol|character_name|commentary|request|style|view|pose|solo|focus|looking|background|monochrome|greyscale|highres|absurdres|watermark|signature|text|sky|scenery|weapon|sword|tree|clouds|flowers|food|animal|room|window|outdoors|indoors|night|day|sunlight|sunset|light|shadow|gradient)(?:_|$)/i;
 export const NON_CHARACTER_SUFFIX_REGEX = /\((?:mtf|ftm|style|cosplay|medium|concept|clothing|artist|parody|meme|object|anatomy|organ|symbol|pose|view|scenery|room|series)\)$/i;
 
+export const KNOWN_CHARACTER_SERIES_REGEX = /^(?:sword_art_online|animal_crossing|light_yagami|spice_&_wolf|spice_and_wolf|blue_archive|dark_souls|hollow_knight|angel_beats|black_rock_shooter)(?:_|$)/i;
+
 export const isCharacterTag = (tag) => {
-  if (!tag || typeof tag !== 'string') return false;
-  const clean = tag.trim().toLowerCase();
-  if (clean.length < 3 || /^\d/.test(clean) || clean.startsWith('&') || clean.includes('&') || clean.includes(';')) return false;
-  if (ATTR_REGEX.test(clean)) return false;
+  if (!tag || typeof tag !== "string") return false;
+  const clean = tag
+    .replace(/&amp;/gi, "&")
+    .replace(/&#039;/g, "'")
+    .trim()
+    .toLowerCase();
+  if (clean.length < 3) return false;
+  if (/^\d+$/.test(clean) || /^\d+\+?(?:girls?|boys?|others?|koma|\+)$/i.test(clean) || /^\d+x\d+$/i.test(clean) || /^\d+:\d+$/.test(clean)) {
+    return false;
+  }
+  if (clean.startsWith("&") || /&[a-z0-9#]+;/i.test(clean)) return false;
   if (NON_CHARACTER_SUFFIX_REGEX.test(clean)) return false;
   if (/^\(?series\)?$/i.test(clean)) return false;
+  if (KNOWN_CHARACTER_SERIES_REGEX.test(clean)) return true;
+  if (clean.includes("(") && clean.includes(")")) return true;
+  if (ATTR_REGEX.test(clean)) return false;
   return true;
 };
 
@@ -76,25 +88,39 @@ export class StorageUtils {
     const list = this.getSavedPins();
     const index = list.findIndex((p) => String(p.id) === String(pin.id));
 
-    this.notifyTasteDirty();
     if (index >= 0) {
       list.splice(index, 1);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch {
+        return true;
+      }
+      this.notifyTasteDirty();
       return false;
     } else {
+      const strId = String(pin.id || "");
+      const defaultKey = strId.startsWith("sb_") ? strId : `sb_${strId}`;
       const compact = typeof pin.toCompact === "function" ? pin.toCompact() : {
         id: pin.id,
         title: pin.title,
         image: pin.previewUrl || pin.sampleUrl || pin.image,
         width: pin.width,
         height: pin.height,
+        ...(pin.artworkKey && pin.artworkKey !== defaultKey ? { artworkKey: pin.artworkKey } : {}),
         ...(pin.fullUrl && pin.fullUrl !== (pin.previewUrl || pin.sampleUrl || pin.image) ? { fullUrl: pin.fullUrl } : {}),
         ...(pin.author && pin.author !== "Visual Artist" ? { author: pin.author } : {}),
+        ...(pin.authorHref ? { authorHref: pin.authorHref } : {}),
+        ...(pin.sourceDomain ? { sourceDomain: pin.sourceDomain } : {}),
         ...(pin.source ? { source: pin.source } : {}),
         ...(Array.isArray(pin.tags) && pin.tags.length > 0 ? { tags: pin.tags.slice(0, 16) } : {})
       };
       list.unshift(compact);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch {
+        return false;
+      }
+      this.notifyTasteDirty();
       return true;
     }
   }
@@ -234,7 +260,7 @@ export class StorageUtils {
     } catch {}
   }
 
-  static getUserTasteTags(dynamicKnownTags = null) {
+  static getUserTasteTags() {
     const saved = this.getSavedPins();
     const viewed = this.getViewedPins();
     const tagCounts = new Map();
@@ -243,7 +269,7 @@ export class StorageUtils {
       list.forEach((pin) => {
         if (pin.title) {
           const titleTag = pin.title.trim().toLowerCase().replace(/\s+/g, "_");
-          if (titleTag && titleTag.length > 2 && this.isThematicTag(titleTag, dynamicKnownTags)) {
+          if (titleTag && titleTag.length > 2 && this.isThematicTag(titleTag)) {
             tagCounts.set(titleTag, (tagCounts.get(titleTag) || 0) + weight * 2);
           }
         }
@@ -252,7 +278,7 @@ export class StorageUtils {
             const raw = typeof t === "string" ? t : t.query || t.label;
             if (!raw) return;
             const clean = raw.trim().toLowerCase();
-            if (this.isThematicTag(clean, dynamicKnownTags)) {
+            if (this.isThematicTag(clean)) {
               tagCounts.set(clean, (tagCounts.get(clean) || 0) + weight);
 
               const m = clean.match(/^(.+)\(([^)]+)\)$/);
@@ -260,10 +286,10 @@ export class StorageUtils {
                 const inner = m[2].trim();
                 const outer = m[1].replace(/_+$/, "").trim();
                 if (/^(series|game|anime|manga|novel|cosplay|style|medium)$/i.test(inner)) {
-                  if (outer.length >= 3 && this.isThematicTag(outer, dynamicKnownTags)) {
+                  if (outer.length >= 3 && this.isThematicTag(outer)) {
                     tagCounts.set(outer, (tagCounts.get(outer) || 0) + weight);
                   }
-                } else if (inner.length >= 3 && this.isThematicTag(inner, dynamicKnownTags)) {
+                } else if (inner.length >= 3 && this.isThematicTag(inner)) {
                   tagCounts.set(inner, (tagCounts.get(inner) || 0) + weight);
                 }
               }
@@ -279,7 +305,7 @@ export class StorageUtils {
     const searches = this.getRecentSearches();
     searches.forEach((s) => {
       const clean = (s || "").trim().toLowerCase();
-      if (clean && clean.length > 2 && this.isThematicTag(clean, dynamicKnownTags)) {
+      if (clean && clean.length > 2 && this.isThematicTag(clean)) {
         tagCounts.set(clean, (tagCounts.get(clean) || 0) + 2);
       }
     });

@@ -1,5 +1,12 @@
-import { StorageUtils } from "../../shared/utils/storage.utils.js?v=6.0";
-import { PinModel } from "../../shared/models/pin.model.js?v=6.0";
+import { StorageUtils } from "../../shared/utils/storage.utils.js?v=6.1";
+import { PinModel } from "../../shared/models/pin.model.js?v=6.1";
+
+const normalizeArtworkKey = (id, artworkKey) => {
+  if (artworkKey) return artworkKey;
+  const strId = String(id || "");
+  if (!strId) return "";
+  return strId.startsWith("sb_") ? strId : `sb_${strId}`;
+};
 
 export class SavedService {
   getSavedPins() {
@@ -39,7 +46,7 @@ export class SavedService {
     const currentPins = StorageUtils.getSavedPins();
     const existingIds = new Set(currentPins.map((p) => String(p.id)));
     const existingArtKeys = new Set(
-      currentPins.map((p) => p.artworkKey || `sb_${p.id}`).filter(Boolean)
+      currentPins.map((p) => normalizeArtworkKey(p.id, p.artworkKey)).filter(Boolean)
     );
 
     const newPins = [];
@@ -58,7 +65,7 @@ export class SavedService {
       }
 
       const strId = String(raw.id || "");
-      const artKey = raw.artworkKey || (strId ? `sb_${strId}` : "");
+      const artKey = normalizeArtworkKey(strId, raw.artworkKey);
 
       if ((strId && existingIds.has(strId)) || (artKey && existingArtKeys.has(artKey))) {
         skippedCount++;

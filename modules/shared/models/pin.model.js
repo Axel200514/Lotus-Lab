@@ -1,4 +1,4 @@
-import { isCharacterTag } from "../utils/storage.utils.js?v=6.0";
+import { isCharacterTag } from "../utils/storage.utils.js?v=6.1";
 
 const decodeHtmlEntities = (str) => {
   if (typeof str !== "string" || !str.includes("&")) return str || "";
@@ -17,7 +17,10 @@ const isSafeHttpUrl = (url) => {
 
 export class PinModel {
   constructor(data = {}) {
-    this.id = String(data.id || Date.now());
+    const fallbackId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    this.id = String(data.id || fallbackId);
     const rawTitle = data.title || (data.author ? `Illustration by ${data.author}` : "Digital Illustration");
     this.title = decodeHtmlEntities(rawTitle);
     this.character = data.character || "";
@@ -52,7 +55,8 @@ export class PinModel {
     this.source = isSafeHttpUrl(data.source) ? data.source.trim() : this.fullUrl;
     this.sourceDomain = data.sourceDomain || this.deriveDomain(this.source || this.authorHref);
     this.createdAt = data.createdAt || new Date().toISOString();
-    this.artworkKey = data.artworkKey || `sb_${this.id}`;
+    const defaultKey = this.id.startsWith("sb_") ? this.id : `sb_${this.id}`;
+    this.artworkKey = data.artworkKey || defaultKey;
   }
 
   deriveDomain(url) {
@@ -73,6 +77,10 @@ export class PinModel {
       width: this.width,
       height: this.height
     };
+    const defaultKey = this.id.startsWith("sb_") ? this.id : `sb_${this.id}`;
+    if (this.artworkKey && this.artworkKey !== defaultKey) {
+      compact.artworkKey = this.artworkKey;
+    }
     if (this.character) {
       compact.character = this.character;
     }
@@ -81,6 +89,12 @@ export class PinModel {
     }
     if (this.author && this.author !== "Visual Artist") {
       compact.author = this.author;
+    }
+    if (this.authorHref && isSafeHttpUrl(this.authorHref)) {
+      compact.authorHref = this.authorHref;
+    }
+    if (this.sourceDomain) {
+      compact.sourceDomain = this.sourceDomain;
     }
     if (this.source && this.source !== compact.image && this.source !== this.fullUrl) {
       compact.source = this.source;
