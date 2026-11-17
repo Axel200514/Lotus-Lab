@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=5.9";
-import { PinCardComponent } from "../pin-card/pin-card.component.js?v=5.9";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=5.9";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=6.0";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=6.0";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.0";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
