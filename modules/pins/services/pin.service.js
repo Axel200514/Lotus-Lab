@@ -1,6 +1,10 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=6.0";
-import { PinModel } from "../../shared/models/pin.model.js?v=6.0";
-import { StorageUtils, isCharacterTag, isArtworkDuplicate } from "../../shared/utils/storage.utils.js?v=6.0";
+import { API_CONFIG } from "../../../app/app.config.js?v=6.1";
+import { HttpService } from "../../core/services/http.service.js?v=6.1";
+import { PinModel } from "../../shared/models/pin.model.js?v=6.1";
+import { StorageUtils, isCharacterTag, isArtworkDuplicate } from "../../shared/utils/storage.utils.js?v=6.1";
+
+const MAX_CACHE_ENTRIES = 100;
+const SPANISH_WORDS_REGEX = /\b(?:paisaje|bosque|espada|gato|perro|chica|chico|mujer|hombre|noche|cielo|playa|flores|fuego|agua|hielo|nieve|oscuridad|estrella|ciudad|castillo|escuela|vestido|cabello|alas|demonio|bruja|caballero|guerrero|princesa|armadura|fondo|pantalla|dibujo|retrato|atardecer|montana|espacio|guitarra|sombrero)\b/i;
 
 export class PinService {
   constructor() {
@@ -10,6 +14,26 @@ export class PinService {
     this.sessionSeenIds = new Set();
     this.sessionSeenArtworks = new Set();
     this.resetSession();
+  }
+
+  getCache(key) {
+    if (!this.cache.has(key)) return undefined;
+    const val = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, val);
+    return val;
+  }
+
+  setCache(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= MAX_CACHE_ENTRIES) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, value);
   }
 
   resetSession() {
@@ -69,11 +93,8 @@ export class PinService {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=en&dt=t&q=${encodeURIComponent(clean)}`;
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await HttpService.fetchWithTimeout(url, { timeoutMs: 2000 });
 
       if (res.ok) {
         const text = await res.text();
@@ -135,16 +156,15 @@ export class PinService {
   }
 
   isSpanish(text) {
-    return /[áéíóúüñ]/i.test(text || "");
+    const clean = (text || "").trim();
+    if (!clean) return false;
+    return /[áéíóúüñ¿¡]/i.test(clean) || SPANISH_WORDS_REGEX.test(clean);
   }
 
   async translateToRomaji(text) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ja&dt=t&dt=rm&q=${encodeURIComponent(text)}`;
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await HttpService.fetchWithTimeout(url, { timeoutMs: 2000 });
       if (res.ok) {
         const data = await res.json();
         const romaji = data[0]?.find((item) => item && item[2])?.[2] || "";
@@ -256,17 +276,7 @@ export class PinService {
     for (let attempt = 0; attempt <= retryCount; attempt++) {
       if (signal && signal.aborted) return [];
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9500);
-        const onAbort = () => controller.abort();
-        if (signal) {
-          signal.addEventListener("abort", onAbort, { once: true });
-        }
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (signal) {
-          signal.removeEventListener("abort", onAbort);
-        }
+        const res = await HttpService.fetchWithTimeout(url, { timeoutMs: 9500, signal });
 
         if (res.ok) {
           const text = await res.text();
@@ -283,43 +293,19 @@ export class PinService {
     return [];
   }
 
-  async getPins(query = "", page = 1, limit = API_CONFIG.defaultLimit) {
-    const cleanQuery = query.trim().toLowerCase();
-    const cacheKey = `${cleanQuery}_${page}_${limit}`;
-
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
-    }
-
-    let result;
-    if (cleanQuery && cleanQuery.length >= 2) {
-      result = await this.searchPins(cleanQuery, page, limit);
-    } else {
-      result = await this.getFeedPins(page, limit);
-    }
-
-    if (result && Array.isArray(result.pins) && result.pins.length > 0) {
-      this.cache.set(cacheKey, result);
-    }
-
-    return result;
-  }
-
   async getPinById(pinId) {
     const cleanId = String(pinId || "").replace(/^sb_/, "").trim();
     if (!cleanId) return null;
 
     const cacheKey = `pin_${cleanId}`;
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
+    const cachedPin = this.getCache(cacheKey);
+    if (cachedPin) {
+      return cachedPin;
     }
 
     const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=id:${encodeURIComponent(cleanId)}&limit=1`;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await HttpService.fetchWithTimeout(url, { timeoutMs: 5000 });
 
       if (res.ok) {
         const text = await res.text();
@@ -328,7 +314,7 @@ export class PinService {
           const data = JSON.parse(safeText);
           if (Array.isArray(data) && data.length > 0) {
             const pin = PinModel.fromSafebooru(data[0]);
-            this.cache.set(cacheKey, pin);
+            this.setCache(cacheKey, pin);
             return pin;
           }
         }
@@ -381,13 +367,9 @@ export class PinService {
       for (const item of emergency) {
         if (!item || !item.id) continue;
         const artKey = item.artworkKey || item.id;
-        if (
-          !seen.has(item.id) &&
-          !seenArtworks.has(artKey) &&
-          !this.sessionSeenIds.has(item.id) &&
-          !this.sessionSeenArtworks.has(artKey)
-        ) {
+        if (!seen.has(item.id) && !seenArtworks.has(artKey)) {
           seen.add(item.id);
+          seenArtworks.add(artKey);
           this.sessionSeenArtworks.add(artKey);
           this.sessionSeenIds.add(item.id);
           combined.push(item);
@@ -427,8 +409,9 @@ export class PinService {
     const cleanTopic = (topic || "").trim().toLowerCase();
     const cacheKey = `topic_${cleanTopic}_${page}_${limit}`;
 
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
+    const cachedTopic = this.getCache(cacheKey);
+    if (cachedTopic) {
+      return cachedTopic;
     }
 
     const results = await this.fetchSafebooru(cleanTopic, page, limit, signal);
@@ -451,7 +434,7 @@ export class PinService {
     };
 
     if (pins.length > 0) {
-      this.cache.set(cacheKey, result);
+      this.setCache(cacheKey, result);
     }
 
     return result;
@@ -518,31 +501,50 @@ export class PinService {
 
     const uniqueCandidates = Array.from(new Set(directCandidates.filter(Boolean)));
     if (uniqueCandidates.length > 0) {
-      const primaryBatch = uniqueCandidates.slice(0, 3);
-      const batchResults = await Promise.allSettled(
-        primaryBatch.map((candidateTag) => this.executeSafebooruFetch(candidateTag, page, limit, 2, signal))
-      );
+      const primaryTag = uniqueCandidates[0];
+      const primaryData = await this.executeSafebooruFetch(primaryTag, page, limit, 2, signal);
+      if (signal && signal.aborted) return [];
+
+      if (primaryData.length >= limit) {
+        this.tagResolutionCache.set(raw, primaryTag);
+        return primaryData.slice(0, limit).map((item) => PinModel.fromSafebooru(item));
+      }
 
       const seenIds = new Set();
       const mergedItems = [];
-      let bestTag = primaryBatch[0];
-      let bestCount = 0;
+      let bestTag = primaryTag;
+      let bestCount = primaryData.length;
 
-      batchResults.forEach((res, idx) => {
-        if (res.status === "fulfilled" && Array.isArray(res.value)) {
-          const candidateTag = primaryBatch[idx];
-          if (res.value.length > bestCount) {
-            bestCount = res.value.length;
-            bestTag = candidateTag;
-          }
-          for (const item of res.value) {
-            if (item && item.id && !seenIds.has(item.id)) {
-              seenIds.add(item.id);
-              mergedItems.push(item);
+      for (const item of primaryData) {
+        if (item && item.id && !seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          mergedItems.push(item);
+        }
+      }
+
+      const extraVariants = uniqueCandidates.slice(1, 3);
+      if (extraVariants.length > 0) {
+        const batchResults = await Promise.allSettled(
+          extraVariants.map((candidateTag) => this.executeSafebooruFetch(candidateTag, page, limit, 2, signal))
+        );
+        if (signal && signal.aborted) return [];
+
+        batchResults.forEach((res, idx) => {
+          if (res.status === "fulfilled" && Array.isArray(res.value)) {
+            const candidateTag = extraVariants[idx];
+            if (res.value.length > bestCount) {
+              bestCount = res.value.length;
+              bestTag = candidateTag;
+            }
+            for (const item of res.value) {
+              if (item && item.id && !seenIds.has(item.id)) {
+                seenIds.add(item.id);
+                mergedItems.push(item);
+              }
             }
           }
-        }
-      });
+        });
+      }
 
       if (mergedItems.length > 0) {
         this.tagResolutionCache.set(raw, bestTag);
@@ -700,9 +702,13 @@ export class PinService {
   async getRelatedPins(pin, page = 1, limit = 8, excludeIds = null, signal = null) {
     if (!pin) return [];
 
-    const cacheKey = `rel_${pin.id}_${page}_${limit}`;
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey);
+    const excludeKey = excludeIds && excludeIds.size > 0
+      ? Array.from(excludeIds).sort().join(",")
+      : "";
+    const cacheKey = `rel_${pin.id}_${page}_${limit}_${excludeKey}`;
+    const cachedRelated = this.getCache(cacheKey);
+    if (cachedRelated) {
+      return cachedRelated;
     }
 
     const anchors = this.determinePinAnchors(pin);
@@ -713,6 +719,42 @@ export class PinService {
     if (pin.artworkKey) {
       collectedArtworks.add(pin.artworkKey);
     }
+
+    const appendUniquePins = (rawItems) => {
+      if (!Array.isArray(rawItems) || rawItems.length === 0) return;
+      for (const rawItem of rawItems) {
+        if (results.length >= limit) break;
+        const item = rawItem instanceof PinModel ? rawItem : PinModel.fromSafebooru(rawItem);
+        const artKey = item.artworkKey || item.id;
+        if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
+          if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
+            continue;
+          }
+          collectedIds.add(item.id);
+          collectedArtworks.add(artKey);
+          results.push(item);
+        }
+      }
+    };
+
+    const fetchTag = async (tag) => {
+      if (signal && signal.aborted) return [];
+      const clean = tag.replace(/[*]+/g, "").trim();
+      const fetchAmount = Math.max(24, limit * 3);
+      const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(clean)}&page=${page}&limit=${fetchAmount}`;
+      try {
+        const res = await HttpService.fetchWithTimeout(url, { timeoutMs: 4500, signal });
+        if (res.ok) {
+          const text = await res.text();
+          const safeText = (text || "").trim();
+          if (safeText.startsWith("[")) {
+            const data = JSON.parse(safeText);
+            return Array.isArray(data) ? data : [];
+          }
+        }
+      } catch {}
+      return [];
+    };
 
     const queryTags = [];
     if (anchors.primaryCharacter && anchors.primarySeries) {
@@ -730,108 +772,47 @@ export class PinService {
       if (queryTags.length >= 6) break;
     }
 
-    const fetchAmount = Math.max(24, limit * 3);
+    if (queryTags.length > 0 && (!signal || !signal.aborted)) {
+      const firstBatch = await fetchTag(queryTags[0]);
+      appendUniquePins(firstBatch);
+    }
 
-    for (let i = 0; i < queryTags.length; i++) {
-      if (results.length >= limit) break;
-      if (signal && signal.aborted) break;
-      const tag = queryTags[i];
-      const clean = tag.replace(/[*]+/g, "").trim();
-      const targetPage = page;
-      const url = `${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(clean)}&page=${targetPage}&limit=${fetchAmount}`;
-
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4500);
-        const onAbort = () => controller.abort();
-        if (signal) {
-          signal.addEventListener("abort", onAbort, { once: true });
+    if (results.length < limit && queryTags.length > 1 && (!signal || !signal.aborted)) {
+      const secondaryTags = queryTags.slice(1, 4);
+      const settled = await Promise.allSettled(secondaryTags.map((t) => fetchTag(t)));
+      for (const entry of settled) {
+        if (results.length >= limit) break;
+        if (entry.status === "fulfilled") {
+          appendUniquePins(entry.value);
         }
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (signal) {
-          signal.removeEventListener("abort", onAbort);
-        }
-        if (res.ok) {
-          const text = await res.text();
-          const safeText = (text || "").trim();
-          if (safeText.startsWith("[")) {
-            const data = JSON.parse(safeText);
-            if (Array.isArray(data) && data.length > 0) {
-              const mapped = data.map((item) => PinModel.fromSafebooru(item));
-              for (const item of mapped) {
-                const artKey = item.artworkKey || item.id;
-                if (!collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
-                  if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
-                    continue;
-                  }
-                  collectedIds.add(item.id);
-                  collectedArtworks.add(artKey);
-                  results.push(item);
-                  if (results.length >= limit) break;
-                }
-              }
-            }
-          }
-        }
-      } catch {}
+      }
     }
 
     if (results.length === 0 && (!signal || !signal.aborted)) {
       if (anchors.primaryCharacter) {
         const cleanChar = anchors.primaryCharacter.replace(/[*]+/g, "").trim();
-        const fallbackData = await this.executeSafebooruFetch(cleanChar, page, limit, 1, signal);
-        for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
-          const artKey = item.artworkKey || item.id;
-          if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
-            if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
-              continue;
-            }
-            collectedIds.add(item.id);
-            collectedArtworks.add(artKey);
-            results.push(item);
-            if (results.length >= limit) break;
-          }
-        }
+        const fallbackData = await this.executeSafebooruFetch(cleanChar, page, limit, 0, signal);
+        appendUniquePins(fallbackData);
       }
       if (results.length === 0 && anchors.allAnchors.length > 0) {
-        for (const fallbackTag of anchors.allAnchors.slice(0, 3)) {
+        const settledFallbacks = await Promise.allSettled(
+          anchors.allAnchors.slice(0, 3).map((t) => this.executeSafebooruFetch(t.replace(/[*]+/g, "").trim(), page, limit, 0, signal))
+        );
+        for (const entry of settledFallbacks) {
           if (results.length >= limit) break;
-          const cleanTag = fallbackTag.replace(/[*]+/g, "").trim();
-          const fallbackData = await this.executeSafebooruFetch(cleanTag, page, limit, 1, signal);
-          for (const item of fallbackData.map((p) => PinModel.fromSafebooru(p))) {
-            const artKey = item.artworkKey || item.id;
-            if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
-              if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
-                continue;
-              }
-              collectedIds.add(item.id);
-              collectedArtworks.add(artKey);
-              results.push(item);
-              if (results.length >= limit) break;
-            }
+          if (entry.status === "fulfilled") {
+            appendUniquePins(entry.value);
           }
         }
       }
       if (results.length === 0) {
-        const feedData = await this.executeSafebooruFetch("", page, limit, 1, signal);
-        for (const item of feedData.map((p) => PinModel.fromSafebooru(p))) {
-          const artKey = item.artworkKey || item.id;
-          if (item.id !== pin.id && !collectedIds.has(item.id) && !collectedArtworks.has(artKey)) {
-            if (isArtworkDuplicate(pin, item) || results.some((r) => isArtworkDuplicate(r, item))) {
-              continue;
-            }
-            collectedIds.add(item.id);
-            collectedArtworks.add(artKey);
-            results.push(item);
-            if (results.length >= limit) break;
-          }
-        }
+        const feedData = await this.executeSafebooruFetch("", page, limit, 0, signal);
+        appendUniquePins(feedData);
       }
     }
 
     if (results.length > 0) {
-      this.cache.set(cacheKey, results);
+      this.setCache(cacheKey, results);
     }
 
     return results;
