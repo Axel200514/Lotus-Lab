@@ -1,5 +1,5 @@
-import { ExploreService } from "../../services/explore.service.js?v=6.0";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.0";
+import { ExploreService } from "../../services/explore.service.js?v=6.1";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.1";
 
 export class ExploreMainComponent {
   constructor(container, onTopicSelect, service = null) {
@@ -86,6 +86,22 @@ export class ExploreMainComponent {
     wrapper.appendChild(fragment);
     this.container.appendChild(wrapper);
     return Array.isArray(boards) && boards.length > 0;
+  }
+
+  refreshRecentSearches() {
+    const wrapper = this.container ? this.container.querySelector(".explore-container") : null;
+    if (!wrapper) return;
+    const existing = wrapper.querySelector(".explore-recent-section");
+    if (existing) {
+      existing.remove();
+    }
+    const recentSearches = StorageUtils.getRecentSearches();
+    if (Array.isArray(recentSearches) && recentSearches.length > 0) {
+      const recentSection = this.buildRecentSearchesSection(recentSearches);
+      if (recentSection) {
+        wrapper.prepend(recentSection);
+      }
+    }
   }
 
   buildRecentSearchesSection(searches) {
@@ -203,24 +219,29 @@ export class ExploreMainComponent {
       const bTitle = clone.querySelector(".board-title");
       const bAuthorName = clone.querySelector(".author-name");
 
+      const setImgWithFallback = (imgEl, fallbacks) => {
+        const unique = [...new Set(fallbacks.filter(Boolean))];
+        let idx = 0;
+        imgEl.src = unique[0] || "";
+        imgEl.onerror = () => {
+          idx += 1;
+          if (idx < unique.length) {
+            imgEl.src = unique[idx];
+          } else {
+            imgEl.onerror = null;
+          }
+        };
+      };
+
       const displayTitle = this.cleanText(board.title);
-      mainImg.src = board.previews[0];
+      setImgWithFallback(mainImg, [board.previews[0], board.previews[1], board.previews[2]]);
       mainImg.alt = displayTitle;
-      mainImg.onerror = () => {
-        if (board.previews[1]) mainImg.src = board.previews[1];
-      };
 
-      sub1.src = board.previews[1] || board.previews[0];
+      setImgWithFallback(sub1, [board.previews[1], board.previews[0], board.previews[2]]);
       sub1.alt = displayTitle;
-      sub1.onerror = () => {
-        if (board.previews[0]) sub1.src = board.previews[0];
-      };
 
-      sub2.src = board.previews[2] || board.previews[0];
+      setImgWithFallback(sub2, [board.previews[2], board.previews[0], board.previews[1]]);
       sub2.alt = displayTitle;
-      sub2.onerror = () => {
-        if (board.previews[0]) sub2.src = board.previews[0];
-      };
 
       bTitle.textContent = displayTitle;
       bAuthorName.textContent = `${board.author} `;

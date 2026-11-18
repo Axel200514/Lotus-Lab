@@ -1,5 +1,6 @@
-import { API_CONFIG } from "../../../app/app.config.js?v=6.0";
-import { StorageUtils, isCharacterTag, IDEAS_CACHE_KEY } from "../../shared/utils/storage.utils.js?v=6.0";
+import { API_CONFIG } from "../../../app/app.config.js?v=6.1";
+import { HttpService } from "../../core/services/http.service.js?v=6.1";
+import { StorageUtils, isCharacterTag, IDEAS_CACHE_KEY } from "../../shared/utils/storage.utils.js?v=6.1";
 
 const CACHE_KEY = "lotus_explore_cache_v33";
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
@@ -105,13 +106,10 @@ export class ExploreService {
 
   async fetchExploreData() {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const res = await fetch(API_CONFIG.trendingEndpoint, {
+      const res = await HttpService.fetchWithTimeout(API_CONFIG.trendingEndpoint, {
         cache: "no-store",
-        signal: controller.signal
+        timeoutMs: 15000
       });
-      clearTimeout(timeoutId);
 
       if (!res.ok) return { boards: [], popularSections: [] };
 
@@ -218,23 +216,7 @@ export class ExploreService {
       }
     });
 
-    const recurringTags = [...tagOccurrences.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([tag]) => tag);
-
-    const dynamicKnownTags = new Set([
-      ...(exploreData.boards || []).map((b) => (b.tag || "").toLowerCase()),
-      ...(exploreData.popularSections || []).map((s) => (s.tag || "").toLowerCase()),
-      ...recentSearches
-        .map((s) => (s || "").trim().toLowerCase().replace(/\s+/g, "_"))
-        .filter(isCharacterTag),
-      ...savedPins.flatMap((p) => [
-        (p.title || "").trim().toLowerCase().replace(/\s+/g, "_"),
-        ...(Array.isArray(p.tags) ? p.tags.map((t) => (typeof t === "string" ? t : t.query || t.label || "").trim().toLowerCase().replace(/\s+/g, "_")) : [])
-      ]).filter(isCharacterTag),
-      ...recurringTags
-    ]);
-    const userTasteTags = StorageUtils.getUserTasteTags(dynamicKnownTags);
+    const userTasteTags = StorageUtils.getUserTasteTags();
 
     const selectedTopics = [];
     const usedQueries = new Set();
@@ -500,7 +482,6 @@ export class ExploreService {
   }
 
   async getReplacementCandidates(existingBoardKeys, seenSectionKeys) {
-    const dynamicKnownTags = new Set([...existingBoardKeys, ...seenSectionKeys]);
     const discoveryCandidates = [];
     const personalCandidates = [];
     const seen = new Set();
@@ -537,12 +518,9 @@ export class ExploreService {
 
     try {
       const randomPage = Math.floor(Math.random() * 25) + 1;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=&page=${randomPage}&limit=50`, {
-        signal: controller.signal
+      const res = await HttpService.fetchWithTimeout(`${API_CONFIG.safebooruProxyEndpoint}?tags=&page=${randomPage}&limit=50`, {
+        timeoutMs: 6000
       });
-      clearTimeout(timeoutId);
       if (res.ok) {
         const posts = await res.json();
         const freq = new Map();
@@ -550,7 +528,7 @@ export class ExploreService {
           posts.forEach((p) => {
             (p.tags || "").split(" ").forEach((t) => {
               const clean = t.trim().toLowerCase();
-              if (StorageUtils.isThematicTag(clean, dynamicKnownTags)) {
+              if (StorageUtils.isThematicTag(clean)) {
                 freq.set(clean, (freq.get(clean) || 0) + 1);
               }
             });
@@ -571,7 +549,7 @@ export class ExploreService {
       }
     } catch {}
 
-    const userTaste = StorageUtils.getUserTasteTags(dynamicKnownTags);
+    const userTaste = StorageUtils.getUserTasteTags();
     const rawPersonal = [...userTaste];
 
     const saved = StorageUtils.getSavedPins();
@@ -580,7 +558,7 @@ export class ExploreService {
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => {
           const raw = typeof t === "string" ? t : t.query || t.label;
-          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) rawPersonal.push(raw);
+          if (StorageUtils.isThematicTag(raw)) rawPersonal.push(raw);
         });
       }
     });
@@ -591,14 +569,14 @@ export class ExploreService {
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => {
           const raw = typeof t === "string" ? t : t.query || t.label;
-          if (StorageUtils.isThematicTag(raw, dynamicKnownTags)) rawPersonal.push(raw);
+          if (StorageUtils.isThematicTag(raw)) rawPersonal.push(raw);
         });
       }
     });
 
     const searches = StorageUtils.getRecentSearches();
     searches.forEach((s) => {
-      if (StorageUtils.isThematicTag(s, dynamicKnownTags)) rawPersonal.push(s);
+      if (StorageUtils.isThematicTag(s)) rawPersonal.push(s);
     });
 
     this.shuffleList(rawPersonal).forEach((tag) => tryRegister(tag, personalCandidates, false));
@@ -609,12 +587,9 @@ export class ExploreService {
   async fetchSectionForTag(tag, page = 1) {
     try {
       const fetchPosts = async (targetPage) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&page=${targetPage}&limit=16`, {
-          signal: controller.signal
+        const res = await HttpService.fetchWithTimeout(`${API_CONFIG.safebooruProxyEndpoint}?tags=${encodeURIComponent(tag)}&page=${targetPage}&limit=16`, {
+          timeoutMs: 6000
         });
-        clearTimeout(timeoutId);
         if (!res.ok) return [];
         const data = await res.json();
         return Array.isArray(data) ? data : [];
