@@ -1,6 +1,14 @@
 export class PinCardComponent {
   constructor(template) {
     this.template = template;
+    this.observers = new Set();
+  }
+
+  disconnectAll() {
+    for (const obs of this.observers) {
+      obs.disconnect();
+    }
+    this.observers.clear();
   }
 
   render(pin, isSaved, callbacks = {}) {
@@ -35,9 +43,19 @@ export class PinCardComponent {
     const uniqueSources = [...new Set(sources)];
     let sourceIndex = 0;
     let isLoaded = false;
+    let observer = null;
+
+    const cleanupObserver = () => {
+      if (observer) {
+        observer.disconnect();
+        this.observers.delete(observer);
+        observer = null;
+      }
+    };
 
     const onImageLoaded = () => {
       isLoaded = true;
+      cleanupObserver();
       img.classList.add("loaded");
       img.classList.remove("error");
     };
@@ -49,6 +67,7 @@ export class PinCardComponent {
       if (sourceIndex < uniqueSources.length) {
         img.src = uniqueSources[sourceIndex];
       } else {
+        cleanupObserver();
         img.classList.add("loaded");
         img.classList.add("error");
       }
@@ -60,22 +79,29 @@ export class PinCardComponent {
       onImageLoaded();
     }
 
-    if ("IntersectionObserver" in window && card) {
-      const observer = new IntersectionObserver(
+    if (!isLoaded && "IntersectionObserver" in window && card) {
+      observer = new IntersectionObserver(
         (entries) => {
-          entries.forEach((entry) => {
+          if (!card.isConnected || isLoaded) {
+            cleanupObserver();
+            return;
+          }
+          for (const entry of entries) {
             if (entry.isIntersecting && !isLoaded) {
               if (img.complete && img.naturalWidth === 0) {
                 sourceIndex++;
                 if (sourceIndex < uniqueSources.length) {
                   img.src = uniqueSources[sourceIndex];
+                } else {
+                  cleanupObserver();
                 }
               }
             }
-          });
+          }
         },
         { rootMargin: "200px" }
       );
+      this.observers.add(observer);
       observer.observe(card);
     }
 

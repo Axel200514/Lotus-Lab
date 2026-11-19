@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=6.0";
-import { PinCardComponent } from "../pin-card/pin-card.component.js?v=6.0";
-import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.0";
+import { showToast, copyToClipboard } from "../../../shared/utils/ui.utils.js?v=6.1";
+import { PinCardComponent } from "../pin-card/pin-card.component.js?v=6.1";
+import { StorageUtils } from "../../../shared/utils/storage.utils.js?v=6.1";
 
 export class PinListComponent {
   constructor(container, template, savedService, callbacks = {}) {
@@ -44,6 +44,9 @@ export class PinListComponent {
       this.thresholdObserver.disconnect();
       this.thresholdObserver = null;
     }
+    if (this.cardComponent && typeof this.cardComponent.disconnectAll === "function") {
+      this.cardComponent.disconnectAll();
+    }
     this.initColumns();
     this.renderedPins = [];
   }
@@ -52,6 +55,9 @@ export class PinListComponent {
     if (this.thresholdObserver) {
       this.thresholdObserver.disconnect();
       this.thresholdObserver = null;
+    }
+    if (this.cardComponent && typeof this.cardComponent.disconnectAll === "function") {
+      this.cardComponent.disconnectAll();
     }
   }
 
@@ -66,10 +72,12 @@ export class PinListComponent {
 
   handleResize() {
     const needed = this.getOptimalColumnCount();
-    if (needed !== this.columns.length) {
+    if (needed !== this.columns.length && this.renderedPins.length > 0) {
       const pinsToReRender = [...this.renderedPins];
       this.clear();
-      this.renderPins(pinsToReRender);
+      this.renderPins(pinsToReRender, { trackFeedSeen: false });
+    } else if (needed !== this.columns.length) {
+      this.initColumns();
     }
   }
 
@@ -115,7 +123,7 @@ export class PinListComponent {
     this.thresholdObserver.observe(targetCard);
   }
 
-  renderPins(pins = []) {
+  renderPins(pins = [], options = {}) {
     if (!Array.isArray(pins) || pins.length === 0) return;
 
     if (this.columns.length === 0) {
@@ -169,7 +177,15 @@ export class PinListComponent {
       col.appendChild(colFragments[idx]);
     });
 
-    StorageUtils.addFeedSeenIds(pins.filter((p) => p && p.id).map((p) => p.id));
+    const shouldTrack = options.trackFeedSeen !== undefined
+      ? Boolean(options.trackFeedSeen)
+      : (typeof this.callbacks.shouldTrackFeedSeen === "function"
+        ? Boolean(this.callbacks.shouldTrackFeedSeen())
+        : Boolean(this.callbacks.trackFeedSeen));
+
+    if (shouldTrack) {
+      StorageUtils.addFeedSeenIds(pins.filter((p) => p && p.id).map((p) => p.id));
+    }
 
     this.setupThresholdObserver();
   }
