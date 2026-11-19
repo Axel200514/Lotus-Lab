@@ -1,6 +1,6 @@
-import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=6.0";
-import { StorageUtils, isArtworkDuplicate } from "../../utils/storage.utils.js?v=6.0";
-import { API_CONFIG } from "../../../../app/app.config.js?v=6.0";
+import { showToast, copyToClipboard } from "../../utils/ui.utils.js?v=6.1";
+import { StorageUtils, isArtworkDuplicate } from "../../utils/storage.utils.js?v=6.1";
+import { API_CONFIG } from "../../../../app/app.config.js?v=6.1";
 
 export class ModalComponent {
   constructor(onTagClick, onToggleSave, fetchRelatedPins) {
@@ -81,7 +81,7 @@ export class ModalComponent {
         const prevEntry = this.pinStack[this.pinStack.length - 1];
         const prevPin = prevEntry.pin || prevEntry;
         const prevScroll = typeof prevEntry.scrollY === "number" ? prevEntry.scrollY : 0;
-        this.renderPin(prevPin, false, prevScroll);
+        this.renderPin(prevPin, StorageUtils.isSaved(prevPin.id), prevScroll);
       } else {
         this.pinStack = [];
         this.closeInternal();
@@ -110,8 +110,18 @@ export class ModalComponent {
     this.saveBtn.addEventListener("click", () => {
       if (!this.activePin) return;
       if (typeof this.onToggleSave === "function") {
+        const wasSaved = StorageUtils.isSaved(this.activePin.id);
         const isSaved = this.onToggleSave(this.activePin);
         this.updateSaveButton(isSaved);
+        if (isSaved === wasSaved) {
+          showToast({
+            title: "Storage full",
+            subtitle: "Could not update Collections",
+            type: "default",
+            icon: "info"
+          });
+          return;
+        }
         showToast(isSaved ? "Saved to Collections!" : "Removed from Collections");
       }
     });
@@ -176,41 +186,59 @@ export class ModalComponent {
 
   async downloadDirectly(pin) {
     if (!pin) return;
+    const targetUrl = pin.fullUrl || pin.previewUrl;
+    if (!targetUrl) {
+      showToast({
+        title: "Download failed",
+        subtitle: "No valid image URL available",
+        type: "default",
+        icon: "info"
+      });
+      return;
+    }
+
     showToast("Downloading image...");
     this.downloadBtn.classList.add("is-loading");
 
-    const ext = (pin.fullUrl || pin.previewUrl || "").split(".").pop().split("?")[0] || "png";
-    const filename = `${(pin.title || "lotus_pin").replace(/[^a-zA-Z0-9_-]/g, "_")}.${ext}`;
-    const targetUrl = pin.fullUrl || pin.previewUrl;
-    const proxyDownloadUrl = `${API_CONFIG.downloadProxyEndpoint}?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(filename)}`;
-
+    let ext = "jpg";
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(proxyDownloadUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const blob = await response.blob();
-        this.triggerBlobDownload(blob, filename);
-        showToast("Download completed!");
-        this.downloadBtn.classList.remove("is-loading");
-        return;
+      const pathname = new URL(targetUrl).pathname;
+      const lastSegment = pathname.split("/").pop() || "";
+      const rawExt = lastSegment.includes(".") ? lastSegment.split(".").pop().toLowerCase() : "";
+      if (/^(jpe?g|png|webp|gif)$/i.test(rawExt)) {
+        ext = rawExt;
       }
     } catch {}
 
-    const iframe = document.createElement("iframe");
-    iframe.className = "d-none";
-    iframe.src = proxyDownloadUrl;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      if (iframe.parentNode) {
-        document.body.removeChild(iframe);
-      }
-    }, 6000);
+    const baseName = (pin.title || "lotus_pin").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "lotus_pin";
+    const filename = `${baseName}.${ext}`;
+    const proxyDownloadUrl = `${API_CONFIG.downloadProxyEndpoint}?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(filename)}`;
 
-    showToast("Download completed!");
-    this.downloadBtn.classList.remove("is-loading");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(proxyDownloadUrl, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (contentType && !contentType.startsWith("image/") && !contentType.startsWith("application/octet-stream")) {
+        throw new Error("Unexpected response type");
+      }
+      const blob = await response.blob();
+      this.triggerBlobDownload(blob, filename);
+      showToast("Download completed!");
+    } catch {
+      showToast({
+        title: "Download failed",
+        subtitle: "Could not download the image. Please try again.",
+        type: "default",
+        icon: "info"
+      });
+    } finally {
+      clearTimeout(timeoutId);
+      this.downloadBtn.classList.remove("is-loading");
+    }
   }
 
   triggerBlobDownload(blob, filename) {
@@ -410,10 +438,14 @@ export class ModalComponent {
     }
   }
 
+  getRelatedColumnCount() {
+    const width = window.innerWidth;
+    return width > 900 ? 4 : width > 600 ? 3 : 2;
+  }
+
   setupRelatedColumns() {
     if (!this.relatedGrid) return [];
-    const width = window.innerWidth;
-    const colCount = width > 900 ? 4 : width > 600 ? 3 : 2;
+    const colCount = this.getRelatedColumnCount();
     this.relatedGrid.textContent = "";
     this.relatedCols = [];
     this.colHeights = [];
@@ -425,6 +457,16 @@ export class ModalComponent {
       this.colHeights.push(0);
     }
     return this.relatedCols;
+  }
+
+  handleResize() {
+    if (!this.isOpen || !this.relatedGrid || this.renderedRelatedPins.length === 0) return;
+    const needed = this.getRelatedColumnCount();
+    if (needed === this.relatedCols.length) return;
+    const pinsToReRender = [...this.renderedRelatedPins];
+    this.renderedRelatedPins = [];
+    this.setupRelatedColumns();
+    this.renderRelatedPinsBatch(pinsToReRender);
   }
 
   setupRelatedThresholdObserver() {
@@ -521,7 +563,7 @@ export class ModalComponent {
       }
 
       card.addEventListener("click", () => {
-        this.open(relPin, false, true);
+        this.open(relPin, StorageUtils.isSaved(relPin.id), true);
       });
 
       const minIdx = this.colHeights.indexOf(Math.min(...this.colHeights));
@@ -550,33 +592,35 @@ export class ModalComponent {
 
       if (this.relatedCache.has(pin.id)) {
         const cached = this.relatedCache.get(pin.id);
-        this.relatedPage = cached.page;
-        this.hasMoreRelated = cached.hasMore;
-        cached.pins.forEach((p) => {
-          this.renderedRelatedIds.add(p.id);
-          const url = p.previewUrl || p.sampleUrl || p.image || "";
-          const m = url.match(/([a-f0-9]{32})/i);
-          if (m) this.renderedRelatedHashes.add(m[1].toLowerCase());
-          this.seenPinIds.add(p.id);
-        });
-        if (this.relatedContainer) {
-          this.relatedContainer.classList.remove("d-none");
-        }
-        this.renderRelatedPinsBatch(cached.pins);
-        if (typeof restoreScrollTop === "number" && restoreScrollTop > 0) {
-          requestAnimationFrame(() => {
-            if (this.backdrop) {
-              this.backdrop.scrollTop = restoreScrollTop;
-            }
+        if (cached && Array.isArray(cached.pins) && cached.pins.length > 0) {
+          this.relatedPage = cached.page;
+          this.hasMoreRelated = cached.hasMore;
+          cached.pins.forEach((p) => {
+            this.renderedRelatedIds.add(p.id);
+            const url = p.previewUrl || p.sampleUrl || p.image || "";
+            const m = url.match(/([a-f0-9]{32})/i);
+            if (m) this.renderedRelatedHashes.add(m[1].toLowerCase());
+            this.seenPinIds.add(p.id);
           });
+          if (this.relatedContainer) {
+            this.relatedContainer.classList.remove("d-none");
+          }
+          this.renderRelatedPinsBatch(cached.pins);
+          if (typeof restoreScrollTop === "number" && restoreScrollTop > 0) {
+            requestAnimationFrame(() => {
+              if (this.backdrop) {
+                this.backdrop.scrollTop = restoreScrollTop;
+              }
+            });
+          }
+          return;
         }
-        return;
+        this.relatedCache.delete(pin.id);
       }
 
       this.relatedPage = 1;
       this.hasMoreRelated = true;
       this.emptyRelatedRetries = 0;
-      this.relatedCache.set(pin.id, { pins: [], page: 1, hasMore: true });
       if (this.relatedContainer) {
         this.relatedContainer.classList.add("d-none");
       }
@@ -598,12 +642,22 @@ export class ModalComponent {
     try {
       const related = await this.fetchRelatedPins(pin, this.relatedPage, 8, this.renderedRelatedIds, signal);
       if (currentSeq !== this.relatedSeq || !this.isOpen || (this.activePin && this.activePin.id !== pin.id)) {
+        const staleEntry = this.relatedCache.get(pin.id);
+        if (staleEntry && staleEntry.pins.length === 0) {
+          this.relatedCache.delete(pin.id);
+        }
         return;
       }
       if (!Array.isArray(related) || related.length === 0) {
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
-        if (entry) entry.hasMore = false;
+        if (entry) {
+          if (entry.pins.length === 0) {
+            this.relatedCache.delete(pin.id);
+          } else {
+            entry.hasMore = false;
+          }
+        }
         if (isInitial && this.relatedContainer) {
           this.relatedContainer.classList.add("d-none");
         }
@@ -648,17 +702,25 @@ export class ModalComponent {
         }
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
-        if (entry) entry.hasMore = false;
+        if (entry) {
+          if (entry.pins.length === 0) {
+            this.relatedCache.delete(pin.id);
+          } else {
+            entry.hasMore = false;
+          }
+        }
         return;
       }
       this.emptyRelatedRetries = 0;
 
-      const entry = this.relatedCache.get(pin.id);
-      if (entry) {
-        entry.pins.push(...uniqueRelated);
-        entry.page = this.relatedPage;
-        entry.hasMore = this.hasMoreRelated;
+      let entry = this.relatedCache.get(pin.id);
+      if (!entry) {
+        entry = { pins: [], page: 1, hasMore: true };
+        this.relatedCache.set(pin.id, entry);
       }
+      entry.pins.push(...uniqueRelated);
+      entry.page = this.relatedPage;
+      entry.hasMore = this.hasMoreRelated;
 
       this.renderRelatedPinsBatch(uniqueRelated);
       if (typeof restoreScrollTop === "number" && restoreScrollTop > 0) {
@@ -672,7 +734,13 @@ export class ModalComponent {
       if (currentSeq === this.relatedSeq) {
         this.hasMoreRelated = false;
         const entry = this.relatedCache.get(pin.id);
-        if (entry) entry.hasMore = false;
+        if (entry) {
+          if (entry.pins.length === 0) {
+            this.relatedCache.delete(pin.id);
+          } else {
+            entry.hasMore = false;
+          }
+        }
       }
     } finally {
       if (currentSeq === this.relatedSeq) {
