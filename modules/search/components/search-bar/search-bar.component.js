@@ -19,7 +19,7 @@ export class SearchBarComponent {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = setTimeout(() => {
         if (typeof this.onSearch === "function") {
-          this.onSearch(value);
+          this.onSearch(value, { source: "debounce" });
         }
       }, 400);
     });
@@ -31,15 +31,16 @@ export class SearchBarComponent {
         clearTimeout(this.debounceTimer);
         const value = this.inputEl.value.trim();
         if (typeof this.onSearch === "function") {
-          this.onSearch(value);
+          this.onSearch(value, { source: "submit" });
         }
       }
     });
 
     this.clearBtn.addEventListener("click", () => {
+      clearTimeout(this.debounceTimer);
       this.setValue("");
       if (typeof this.onSearch === "function") {
-        this.onSearch("");
+        this.onSearch("", { source: "clear" });
       }
     });
   }

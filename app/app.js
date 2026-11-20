@@ -1,17 +1,17 @@
-import { AppRouter } from "./app.routes.js?v=6.0";
-import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=6.0";
-import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=6.0";
-import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=6.0";
-import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=6.0";
-import { PinService } from "../modules/pins/services/pin.service.js?v=6.0";
-import { SavedService } from "../modules/saved/services/saved.service.js?v=6.0";
-import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=6.0";
-import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=6.0";
-import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=6.0";
-import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=6.0";
-import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=6.0";
-import { ExploreService } from "../modules/explore/services/explore.service.js?v=6.0";
-import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=6.0";
+import { AppRouter } from "./app.routes.js?v=6.1";
+import { APP_ROUTES, API_CONFIG } from "./app.config.js?v=6.1";
+import { NavbarComponent } from "../modules/shared/components/navbar/navbar.component.js?v=6.1";
+import { ModalComponent } from "../modules/shared/components/modal/modal.component.js?v=6.1";
+import { LoaderComponent } from "../modules/shared/components/loader/loader.component.js?v=6.1";
+import { PinService } from "../modules/pins/services/pin.service.js?v=6.1";
+import { SavedService } from "../modules/saved/services/saved.service.js?v=6.1";
+import { PinListComponent } from "../modules/pins/components/pin-list/pin-list.component.js?v=6.1";
+import { SavedListComponent } from "../modules/saved/components/saved-list/saved-list.component.js?v=6.1";
+import { SearchBarComponent } from "../modules/search/components/search-bar/search-bar.component.js?v=6.1";
+import { TagFilterComponent } from "../modules/search/components/tag-filter/tag-filter.component.js?v=6.1";
+import { ExploreMainComponent } from "../modules/explore/components/explore-main/explore-main.component.js?v=6.1";
+import { ExploreService } from "../modules/explore/services/explore.service.js?v=6.1";
+import { StorageUtils } from "../modules/shared/utils/storage.utils.js?v=6.1";
 
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
@@ -83,19 +83,34 @@ class LotusApp {
     this.ptrIndicator = document.getElementById("pull-to-refresh");
     this.ptrIcon = this.ptrIndicator ? this.ptrIndicator.querySelector(".ptr-icon") : null;
 
-    this.pendingPrefetch = false;
     this.feedScrollPosition = 0;
     this.feedPage = 1;
     this.feedHasMore = true;
     this.isFeedActive = false;
     this.activeFetchController = null;
+    this.recentSearchTimer = null;
+    this.resizeTimer = null;
+    this.hasUserInteractedWithTags = false;
+
+    if (this.categoriesContainer) {
+      const markTagInteraction = () => {
+        this.hasUserInteractedWithTags = true;
+      };
+      this.categoriesContainer.addEventListener("pointerdown", markTagInteraction, { passive: true });
+      this.categoriesContainer.addEventListener("wheel", markTagInteraction, { passive: true });
+      this.categoriesContainer.addEventListener("touchstart", markTagInteraction, { passive: true });
+    }
 
     this.loader = new LoaderComponent();
 
     this.modal = new ModalComponent(
       (tag) => this.handleTagSelection(tag),
       (pin) => {
+        const wasSaved = this.savedService.isSaved(pin.id);
         const isSaved = this.savedService.toggleSave(pin);
+        if (isSaved === wasSaved) {
+          return isSaved;
+        }
         if (!isSaved && this.currentMode === "saved") {
           this.savedList.removePin(pin.id);
         } else if (isSaved && this.currentMode === "saved") {
@@ -111,6 +126,7 @@ class LotusApp {
       this.template,
       this.savedService,
       {
+        shouldTrackFeedSeen: () => this.currentMode === "feed",
         onPinClick: (pin) => {
           const isSaved = this.savedService.isSaved(pin.id);
           this.modal.open(pin, isSaved);
@@ -152,12 +168,13 @@ class LotusApp {
     this.searchBar = new SearchBarComponent(
       this.searchInput,
       this.searchClear,
-      (query) => this.handleSearch(query)
+      (query, meta) => this.handleSearch(query, meta)
     );
 
     this.tagFilter = new TagFilterComponent(
       this.categoriesContainer,
       (tag) => {
+        this.hasUserInteractedWithTags = true;
         if (tag) {
           StorageUtils.addRecentSearch(tag);
           this.exploreService.clearIdeasCache();
@@ -174,7 +191,7 @@ class LotusApp {
       this.populateDynamicTags(cachedExplore);
     } else {
       setTimeout(() => {
-        if (!this.hasLoadedTrendingTags) {
+        if (!this.hasLoadedTrendingTags && !this.hasUserInteractedWithTags && this.currentMode !== "explore" && this.currentMode !== "topic") {
           this.loadDynamicTags();
         }
       }, 1800);
@@ -254,12 +271,27 @@ class LotusApp {
     this.initRouter();
     this.initIntersectionObserver();
     this.initPullToRefresh();
-    window.addEventListener("pageshow", (event) => {
-      if (event.persisted) {
-        window.scrollTo(0, 0);
-      }
+    window.addEventListener("resize", () => {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = setTimeout(() => {
+        this.pinList.handleResize();
+        this.savedPinList.handleResize();
+        if (this.modal && typeof this.modal.handleResize === "function") {
+          this.modal.handleResize();
+        }
+      }, 180);
     });
     window._app = this;
+  }
+
+  cancelActivePinFetch() {
+    this.fetchSeq += 1;
+    if (this.activeFetchController) {
+      this.activeFetchController.abort();
+      this.activeFetchController = null;
+    }
+    this.isLoading = false;
+    this.pendingPrefetch = false;
   }
 
   initRouter() {
@@ -532,6 +564,7 @@ class LotusApp {
       return;
     }
 
+    this.cancelActivePinFetch();
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
@@ -558,7 +591,6 @@ class LotusApp {
       return;
     }
 
-    this.pendingPrefetch = false;
     this.currentMode = "feed";
     this.currentQuery = "";
     this.currentPage = 1;
@@ -573,11 +605,6 @@ class LotusApp {
   }
 
   showHomeTopicView(topic) {
-    if (this.currentMode === "feed") {
-      this.feedScrollPosition = window.scrollY;
-      this.feedPage = this.currentPage;
-      this.feedHasMore = this.hasMore;
-    }
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
@@ -589,7 +616,7 @@ class LotusApp {
       return;
     }
 
-    this.pendingPrefetch = false;
+    this.cancelActivePinFetch();
     this.isFeedActive = false;
     this.currentQuery = topic;
     this.currentMode = "topic";
@@ -606,11 +633,6 @@ class LotusApp {
   }
 
   showExploreTopicView(topic, title) {
-    if (this.currentMode === "feed") {
-      this.feedScrollPosition = window.scrollY;
-      this.feedPage = this.currentPage;
-      this.feedHasMore = this.hasMore;
-    }
     this.navbar.setActive(APP_ROUTES.explore);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) {
@@ -627,6 +649,7 @@ class LotusApp {
       return;
     }
 
+    this.cancelActivePinFetch();
     this.isFeedActive = false;
     this.currentQuery = topic;
     this.currentMode = "topic";
@@ -642,11 +665,6 @@ class LotusApp {
   }
 
   showSearchView(query) {
-    if (this.currentMode === "feed") {
-      this.feedScrollPosition = window.scrollY;
-      this.feedPage = this.currentPage;
-      this.feedHasMore = this.hasMore;
-    }
     this.navbar.setActive(APP_ROUTES.home);
     this.categoriesContainer.classList.remove("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
@@ -657,7 +675,7 @@ class LotusApp {
       return;
     }
 
-    this.pendingPrefetch = false;
+    this.cancelActivePinFetch();
     this.isFeedActive = false;
     this.currentQuery = query;
     this.currentMode = "search";
@@ -686,19 +704,19 @@ class LotusApp {
       this.feedPage = this.currentPage;
       this.feedHasMore = this.hasMore;
     }
-    this.fetchSeq += 1;
+    this.cancelActivePinFetch();
     this.navbar.setActive(APP_ROUTES.explore);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
     this.setSavedViewVisible(false);
     this.setExploreViewVisible(true);
-    this.pendingPrefetch = false;
     this.currentMode = "explore";
     this.hasMore = false;
     this.loader.hideEnd();
     this.loader.hideEmpty();
 
     if (this.hasRenderedExplore && !this.exploreService.needsIdeasRefresh()) {
+      this.exploreComponent.refreshRecentSearches();
       this.loader.hide();
       return;
     }
@@ -725,12 +743,11 @@ class LotusApp {
     if (this.currentMode === "saved") {
       return;
     }
-    this.fetchSeq += 1;
+    this.cancelActivePinFetch();
     this.navbar.setActive(APP_ROUTES.saved);
     this.categoriesContainer.classList.add("d-none");
     if (this.exploreHeader) this.exploreHeader.classList.add("d-none");
     this.setSavedViewVisible(true);
-    this.pendingPrefetch = false;
     this.currentMode = "saved";
     this.hasMore = false;
     this.loader.hide();
@@ -738,14 +755,32 @@ class LotusApp {
     this.savedList.render();
   }
 
-  handleSearch(query) {
+  handleSearch(query, meta = { source: "submit" }) {
+    clearTimeout(this.recentSearchTimer);
     const clean = (query || "").trim();
-    if (clean) {
+    const source = meta?.source || "submit";
+
+    if (!clean) {
+      if (source === "debounce" && this.currentMode !== "search") {
+        return;
+      }
+      this.router.navigate(APP_ROUTES.home, { replace: source === "debounce" });
+      return;
+    }
+
+    if (source === "submit") {
       StorageUtils.addRecentSearch(clean);
       this.router.navigate(`search=${encodeURIComponent(clean)}`);
-    } else {
-      this.router.navigate(APP_ROUTES.home);
+      return;
     }
+
+    const shouldReplace = this.currentMode === "search";
+    this.router.navigate(`search=${encodeURIComponent(clean)}`, { replace: shouldReplace });
+    this.recentSearchTimer = setTimeout(() => {
+      if (this.currentMode === "search" && this.currentQuery === clean && this.pinList.renderedPins.length > 0) {
+        StorageUtils.addRecentSearch(clean);
+      }
+    }, 1500);
   }
 
   populateDynamicTags(data) {
@@ -787,11 +822,13 @@ class LotusApp {
   }
 
   async loadDynamicTags() {
-    if (this.isLoadingDynamicTags) return;
+    if (this.isLoadingDynamicTags || this.hasUserInteractedWithTags) return;
     this.isLoadingDynamicTags = true;
     try {
       const data = await this.exploreService.getExploreData();
-      this.populateDynamicTags(data);
+      if (!this.hasUserInteractedWithTags && this.currentMode !== "topic" && this.currentMode !== "explore") {
+        this.populateDynamicTags(data);
+      }
     } catch {}
     finally {
       this.isLoadingDynamicTags = false;
@@ -935,6 +972,7 @@ class LotusApp {
       }
     } finally {
       if (currentSeq === this.fetchSeq) {
+        this.activeFetchController = null;
         this.isLoading = false;
         this.loader.hide();
         if (this.pendingPrefetch) {
