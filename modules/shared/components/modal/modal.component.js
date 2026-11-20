@@ -640,7 +640,11 @@ export class ModalComponent {
     const signal = this.relatedAbortController ? this.relatedAbortController.signal : null;
 
     try {
-      const related = await this.fetchRelatedPins(pin, this.relatedPage, 8, this.renderedRelatedIds, signal);
+      const stackIds = this.pinStack
+        .map((entry) => (entry.pin || entry)?.id)
+        .filter(Boolean);
+      const excludeForFetch = new Set([...this.renderedRelatedIds, ...stackIds]);
+      const related = await this.fetchRelatedPins(pin, this.relatedPage, 8, excludeForFetch, signal);
       if (currentSeq !== this.relatedSeq || !this.isOpen || (this.activePin && this.activePin.id !== pin.id)) {
         const staleEntry = this.relatedCache.get(pin.id);
         if (staleEntry && staleEntry.pins.length === 0) {
@@ -685,6 +689,10 @@ export class ModalComponent {
       const uniqueRelated = related.filter((relPin) => {
         if (!relPin || !relPin.id || this.renderedRelatedIds.has(relPin.id)) return false;
         if (this.activePin && isArtworkDuplicate(this.activePin, relPin)) return false;
+        if (this.pinStack.some((entry) => {
+          const stackPin = entry.pin || entry;
+          return stackPin && (stackPin.id === relPin.id || isArtworkDuplicate(stackPin, relPin));
+        })) return false;
         if (this.renderedRelatedPins.some((existing) => isArtworkDuplicate(existing, relPin))) return false;
         const hash = extractHash(relPin);
         if (hash && this.renderedRelatedHashes.has(hash)) return false;
